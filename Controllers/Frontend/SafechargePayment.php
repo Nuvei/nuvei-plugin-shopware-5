@@ -10,7 +10,6 @@ use Shopware\Bundle\StoreFrontBundle\Struct\Payment;
 
 class Shopware_Controllers_Frontend_SafechargePayment extends Enlight_Controller_Action
 {
-    private $save_logs		= false;
     private $logs_path		= '';
     private $plugin_dir		= '';
     private $webMasterId	= 'ShopWare ';
@@ -33,9 +32,10 @@ class Shopware_Controllers_Frontend_SafechargePayment extends Enlight_Controller
      */
     public function cancelAction()
     {
-        $settings = $this->getPluginSettings();
+        $settings = $this->container->get('shopware.plugin.cached_config_reader')
+			->getByPluginName('SwagSafeCharge', Shopware()->Shop());
         
-        if($settings['test_mode'] === true) {
+        if($settings['swagSCTestMode'] === true) {
             $this->View()->assign(['message' => $this->Request()->getParam('message')]);
         }
         
@@ -44,165 +44,134 @@ class Shopware_Controllers_Frontend_SafechargePayment extends Enlight_Controller
 
     public function payAction()
     {
-		try {
-			require $this->plugin_dir . 'SC_CLASS.php';
-			
-            $persister	= $this->get('basket_persister');
-            $basket		= $persister->load($this->Request()->getParam('signature'));
-            
-            if(!$basket) {
-                $this->createLog('The Basket is empty!');
-                $this->forward('cancel');
-            }
-			
-			$settigns	= $this->container->get('shopware.plugin.cached_config_reader')
-				->getByPluginName('SwagSafeCharge', Shopware()->Shop());
-			
-			if(!$settigns or empty($settigns)) {
-				$this->createLog($settigns, 'There are no settings: ');
+		require $this->plugin_dir . 'SC_CLASS.php';
+		
+		// first call - user must select payment method
+		if(!$this->Request()->getParam('payment_method_sc')) {
+			try {
+				$persister	= $this->get('basket_persister');
+				$basket		= $persister->load($this->Request()->getParam('signature'));
+
+				if(!$basket) {
+					$this->createLog('The Basket is empty!');
+					$this->forward('cancel');
+				}
+
+				$settings	= $this->container->get('shopware.plugin.cached_config_reader')
+					->getByPluginName('SwagSafeCharge', Shopware()->Shop());
+
+				$router		= $this->Front()->Router();
+				$locale		= $this->get('shopware_storefront.context_service')
+					->getShopContext()->getShop()->getLocale()->getLocale();
+				$user		= Shopware()->Modules()->Admin()->sGetUserData();
+
+				$this->webMasterId .= $this->container->getParameter('shopware.release.version');
+			}
+			catch (Exception $e) {
+				$this->createLog($e->getMessage(), 'Basket problem: ');
 				$this->forward('cancel');
 				return false;
 			}
-            
-            $router		= $this->Front()->Router();
-            $locale		= $this->get('shopware_storefront.context_service')
-                ->getShopContext()->getShop()->getLocale()->getLocale();
-            $user		= Shopware()->Modules()->Admin()->sGetUserData();
-            
-			$this->webMasterId .= $this->container->getParameter('shopware.release.version');
-        }
-        catch (Exception $e) {
-            $this->createLog($e->getMessage(), 'Basket problem: ');
-            $this->forward('cancel');
-            return false;
-        }
-		
-        $this->save_logs	= $settigns['swagSCSaveLogs'];
-		$time				= date('YmdHis', time());
-		$order_data			= $this->getOrderData($settings);
-		$urls				= $this->getURLs($settigns);
-		
-		$url_parameters		= [
-            'signature' => $this->Request()->getParam('signature'),
-            'userid'    => $this->Request()->getParam('userid'),
-            'save_logs' => $settigns['swagSCSaveLogs'] ? 'yes' : 'no',
-        ];
-        $get_parameters		= '?' . http_build_query($url_parameters);
-		
-		$success_url	= $router->assemble(['controller' => 'SafeCharge', 'action' => 'success']) . $get_parameters;
-		$error_url		= $router->assemble(['controller' => 'SafechargePayment', 'action' => 'cancel']) . $get_parameters;
-		$back_url		= $router->assemble(['controller' => 'checkout', 'action' => 'confirm']);
-		$notify_url		= $router->assemble(['controller' => 'SafeCharge', 'action' => 'getDMN'])
-            . '?save_logs=' . $this->save_logs;
-		
-		$total_amount	= number_format($basket['sAmount'], 2, '.', '');
-        
-		# Open Order
-		$oo_endpoint_url = 'yes' == $settings['test_mode']
-			? SC_TEST_OPEN_ORDER_URL : SC_LIVE_OPEN_ORDER_URL;
 
-		$oo_params = array(
-			'merchantId'        => $settigns['swagSCMerchantId'],
-			'merchantSiteId'    => $settigns['swagSCMerchantSiteId'],
-			'clientRequestId'   => $time . '_' . uniqid(),
-			'clientUniqueId'	=> $url_parameters['signature'],
-			'amount'            => $total_amount,
-			'currency'          => $this->Request()->getParam('currency'),
-			'timeStamp'         => $time,
-			'urlDetails'        => array(
-				'successUrl'        => $success_url,
-				'failureUrl'        => $error_url,
-				'pendingUrl'        => $success_url,
-				'backUrl'			=> $back_url,
-				'notificationUrl'   => $notify_url,
-			),
-			'deviceDetails'     => SC_CLASS::get_device_details(),
-			'userTokenId'       => $order_data['email'],
-			'billingAddress'    => array(
-				'country' => $user['additional']['country']['countryiso'],
-			),
-			'webMasterId'       => $this->webMasterId,
-			'paymentOption'		=> ['card' => ['threeD' => ['isDynamic3D' => 1]]]
-		);
+			$_SESSION['sc_create_logs']	= $settings['swagSCSaveLogs'] ? 'yes' : 'no';
+			$time = date('YmdHis', time());
 
-		$oo_params['checksum'] = hash(
-			$settigns['swagSCHash'],
-			$oo_params['merchantId'] . $oo_params['merchantSiteId'] . $oo_params['clientRequestId']
-				. $oo_params['amount'] . $oo_params['currency'] . $time . $settigns['swagSCSecret']
-		);
-		
-		echo '<pre>' . print_r($oo_params, true) . '</pre>';
-		die;
+			$url_parameters = [
+				'signature'			=> $this->Request()->getParam('signature'),
+				'userid'			=> $this->Request()->getParam('userid'),
+				'sc_create_logs'	=> $settings['swagSCSaveLogs'] ? 'yes' : 'no',
+			];
 
-		$resp = SC_CLASS::call_rest_api($oo_endpoint_url, $oo_params);
+			$get_parameters = '?' . http_build_query($url_parameters);
 
+			$success_url	= $router->assemble(['controller' => 'SafeCharge', 'action' => 'success']) . $get_parameters;
+			$error_url		= $router->assemble(['controller' => 'SafechargePayment', 'action' => 'cancel']) . $get_parameters;
+			$back_url		= $router->assemble(['controller' => 'checkout', 'action' => 'confirm']);
+			$notify_url		= $router->assemble(['controller' => 'SafeCharge', 'action' => 'getDMN'])
+				. '?sc_create_logs=' . $settings['swagSCSaveLogs'];
 
+			$total_amount	= number_format($basket['sAmount'], 2, '.', '');
 
+			# Open Order
+			$oo_endpoint_url = true === $settings['swagSCTestMode'] ? SC_TEST_OPEN_ORDER_URL : SC_LIVE_OPEN_ORDER_URL;
 
-
-		
-		
-        # On first call just get the APM, create payment on second call
-		$this->View()->assign(['paymentApi' => 'rest']);
-
-		// first call - user must select payment method
-		if(!$this->Request()->getParam('payment_method_sc')) {
-			// get APMs and UPOs
-			
-
-			$user = Shopware()->Modules()->Admin()->sGetUserData();
-
-			$upos = SC_REST_API::get_user_upos(
-				array(
-					'merchantId'        => $settigns['swagSCMerchantId'],
-					'merchantSiteId'    => $settigns['swagSCMerchantSiteId'],
-					'userTokenId'       => $user['additional']['user']['email'],
-					'clientRequestId'   => $this->Request()->getParam('signature'),
-					'timeStamp'         => date('YmdHis', time()),
+			$oo_params = array(
+				'merchantId'        => $settings['swagSCMerchantId'],
+				'merchantSiteId'    => $settings['swagSCMerchantSiteId'],
+				'clientRequestId'   => $time . '_' . uniqid(),
+	//			'clientUniqueId'	=> $url_parameters['signature'],
+				'amount'            => $total_amount,
+				'currency'          => $this->Request()->getParam('currency'),
+				'timeStamp'         => $time,
+				'urlDetails'        => array(
+					'successUrl'        => $success_url,
+					'failureUrl'        => $error_url,
+					'pendingUrl'        => $success_url,
+					'backUrl'			=> $back_url,
+					'notificationUrl'   => $notify_url,
 				),
-				array(
-					'hash_type' => $settigns['swagSCHash'],
-					'secret'    => $settigns['swagSCSecret'],
-					'test'      => $settigns['swagSCTestMode'] ? 'yes' : 'no',
-				)
+				'deviceDetails'     => SC_CLASS::get_device_details(),
+				'userTokenId'       => $user['additional']['user']['email'],
+				'billingAddress'    => array(
+					'country' => $user['additional']['country']['countryiso'],
+				),
+				'webMasterId'       => $this->webMasterId,
+				'paymentOption'		=> ['card' => ['threeD' => ['isDynamic3D' => 1]]]
 			);
 
-			if(!is_array($upos)) {
-				if(is_string($upos)) {
-					$this->createLog($upos, 'APMs result: ');
-				}
+			$oo_params['checksum'] = hash(
+				$settings['swagSCHash'],
+				$oo_params['merchantId'] . $oo_params['merchantSiteId'] . $oo_params['clientRequestId']
+					. $oo_params['amount'] . $oo_params['currency'] . $time . $settings['swagSCSecret']
+			);
 
-				$upos = false;
+			$resp = SC_CLASS::call_rest_api($oo_endpoint_url, $oo_params);
+
+			if(
+				empty($resp['sessionToken'])
+				|| empty($resp['status'])
+				|| 'SUCCESS' != $resp['status']
+			) {
+				$this->createLog($resp, 'Error with the Open order: ');
+				$this->forward('cancel');
+				return false;
 			}
 
-			$apms = SC_REST_API::get_rest_apms($rest_params);
+			$session_token = $resp['sessionToken'];
+			# Open Order END
 
-			if(!is_array($apms)) {
-				if(is_string($apms)) {
-					$this->createLog($apms, 'APMs result: ');
-				}
+			 # get APMs
+			$apms_params = array(
+				'merchantId'        => $oo_params['merchantId'],
+				'merchantSiteId'    => $oo_params['merchantSiteId'],
+				'clientRequestId'   => $time. '_' .uniqid(),
+				'timeStamp'         => $time,
+			);
 
-				$apms = false;
+			$apms_params['checksum']        = hash($settings['swagSCHash'], implode('', $apms_params) . $settings['swagSCSecret']);
+
+			$apms_params['sessionToken']    = $session_token;
+			$apms_params['currencyCode']    = $oo_params['currency'];
+			$apms_params['countryCode']     = $user['additional']['country']['countryiso'];
+			$apms_params['languageCode']    = strlen($locale) > 2 ? substr($locale, 0, 2) : $locale;
+
+			$endpoint_url = true === $settings['swagSCTestMode']
+				? SC_TEST_REST_PAYMENT_METHODS_URL : SC_LIVE_REST_PAYMENT_METHODS_URL;
+
+			$apms = SC_CLASS::call_rest_api($endpoint_url, $apms_params);
+
+			if(empty($apms) or !is_array($apms)) {
+				$this->createLog($apms, 'There are no APMs: ');
+				$this->forward('cancel');
+				return false;
+
+	//			$this->redirect(
+	//				$router->assemble(['controller' => 'SafechargePayment', 'action' => 'cancel'])
+	//				. $get_parameters
+	//			);
 			}
 
-			var_dump($apms);
-			var_dump($upos);
 
-			if(!$apms && !$upos) {
-				$url_parameters = [
-					'signature' => $this->Request()->getParam('signature'),
-					'userid'    => $this->Request()->getParam('userid'),
-					'save_logs' => $settigns['swagSCSaveLogs'] ? 'yes' : 'no',
-				];
-				$get_parameters = '?' . http_build_query($url_parameters);
-
-				$this->redirect(
-					$router->assemble(['controller' => 'SafechargePayment', 'action' => 'cancel'])
-					. $get_parameters
-				);
-			}
-
-			$router = $this->Front()->Router();
 
 			$this->View()->assign([
 				'cancelUrl'  => $router->assemble([
@@ -211,7 +180,6 @@ class Shopware_Controllers_Frontend_SafechargePayment extends Enlight_Controller
 				])
 			]);
 			$this->View()->assign(['apms' => @$apms['paymentMethods']]);
-			$this->View()->assign(['upos' => @$upos['paymentMethods']]);
 		}
 		// second call - collect the data and continue with the payment
 		else {
@@ -220,8 +188,8 @@ class Shopware_Controllers_Frontend_SafechargePayment extends Enlight_Controller
 				return;
 			}
 
-			$settings['merchantId']     = $settigns['swagSCMerchantId'];
-			$settings['merchantSiteId'] = $settigns['swagSCMerchantSiteId'];
+			$settings['merchantId']     = $settings['swagSCMerchantId'];
+			$settings['merchantSiteId'] = $settings['swagSCMerchantSiteId'];
 
 			$params['items[0][name]']       = $TimeStamp;
 			$params['items[0][price]']      = $params['total_amount'];
@@ -237,21 +205,21 @@ class Shopware_Controllers_Frontend_SafechargePayment extends Enlight_Controller
 //                    }
 //                }
 
-			$_SESSION['sc_create_logs'] = $settigns['swagSCSaveLogs'];
+			$_SESSION['sc_create_logs'] = $settings['swagSCSaveLogs'];
 
 			$rest_params = array(
-				'secret_key'        => $settigns['swagSCSecret'],
-				'merchantId'        => $settigns['swagSCMerchantId'],
-				'merchantSiteId'    => $settigns['swagSCMerchantSiteId'],
+				'secret_key'        => $settings['swagSCSecret'],
+				'merchantId'        => $settings['swagSCMerchantId'],
+				'merchantSiteId'    => $settings['swagSCMerchantSiteId'],
 				'currencyCode'      => $this->Request()->getParam('currency'),
 				'languageCode'      => strlen($locale) > 2 ? substr($locale, 0, 2) : $locale,
 				'sc_country'        => $basket['sCountry']['countryiso'],
-				'payment_api'       => $settigns['swagSCApi'],
-				'transaction_type'  => $settigns['swagSCTransactionType'],
-				'test'              => $settigns['swagSCTestMode'] ? 'yes' : 'no',
-				'hash_type'         => $settigns['swagSCHash'],
-				'force_http'        => $settigns['swagSCUseHttp'] ? 'yes' : 'no',
-				'create_logs'       => $settigns['swagSCSaveLogs'],
+				'payment_api'       => $settings['swagSCApi'],
+				'transaction_type'  => $settings['swagSCTransactionType'],
+				'test'              => $settings['swagSCTestMode'] ? 'yes' : 'no',
+				'hash_type'         => $settings['swagSCHash'],
+				'force_http'        => $settings['swagSCUseHttp'] ? 'yes' : 'no',
+				'create_logs'       => $settings['swagSCSaveLogs'],
 			);
 
 			// client request id 1
@@ -364,14 +332,10 @@ class Shopware_Controllers_Frontend_SafechargePayment extends Enlight_Controller
     
     private function getPluginSettings()
     {
-        $settigns = $this->container->get('shopware.plugin.cached_config_reader')
+        $settings = $this->container->get('shopware.plugin.cached_config_reader')
             ->getByPluginName('SwagSafeCharge', Shopware()->Shop());
         
-        return [
-            'hash' => $settigns['swagSCHash'],
-            'secret' => $settigns['swagSCSecret'],
-            'test_mode' => $settigns['swagSCTestMode'],
-        ];
+        return $settings;
     }
     
     private function checkAdvRespChecksum()
@@ -417,56 +381,4 @@ class Shopware_Controllers_Frontend_SafechargePayment extends Enlight_Controller
             'open_order'        => SC_LIVE_OPEN_ORDER_URL,
         ];
 	}
-    
-    private function createLog($data, $title = '')
-    {
-        if(
-            @$this->save_logs === true || $this->save_logs == 'yes'
-            || $this->Request()->getParam('save_logs') == 'yes'
-        ) {
-            $d = '';
-
-            if(is_array($data)) {
-                foreach($data as $k => $dd) {
-                    if(is_array($dd)) {
-                        if(isset($dd['cardData'], $dd['cardData']['CVV'])) {
-                            $data[$k]['cardData']['CVV'] = md5($dd['cardData']['CVV']);
-                        }
-                        if(isset($dd['cardData'], $dd['cardData']['cardHolderName'])) {
-                            $data[$k]['cardData']['cardHolderName'] = md5($dd['cardData']['cardHolderName']);
-                        }
-                    }
-                }
-
-                $d = print_r($data, true);
-            }
-            elseif(is_object($data)) {
-                $d = print_r($data, true);
-            }
-            elseif(is_bool($data)) {
-                $d = $data ? 'true' : 'false';
-            }
-            else {
-                $d = $data;
-            }
-
-            if(!empty($title)) {
-                $d = $title . "\r\n" . $d;
-            }
-
-            if($this->logs_path && is_dir($this->logs_path)) {
-                try {
-                    $time = time();
-                    file_put_contents(
-                        $this->logs_path . date('Y-m-d', $time) . '.txt',
-                        date('H:i:s') . ': ' . $d . "\r\n", FILE_APPEND
-                    );
-                }
-                catch (Exception $exc) {
-                    echo $exc->getMessage();
-                    die;
-                }
-            }
-        }
-    }
 }

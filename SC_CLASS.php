@@ -168,7 +168,7 @@ class SC_CLASS
         if(!defined('SC_LOGS_DIR') && !is_dir(SC_LOGS_DIR)) {
             die('SC_LOGS_DIR is not set!');
         }
-        
+		
         if(
             @$_REQUEST['sc_create_logs'] == 'yes' || @$_REQUEST['sc_create_logs'] == 1
             || @$_SESSION['sc_create_logs'] == 'yes' || @$_SESSION['sc_create_logs'] == 1
@@ -177,19 +177,6 @@ class SC_CLASS
             $d = $data;
 
             if(is_array($data)) {
-                if(isset($data['cardData']) && is_array($data['cardData'])) {
-                    foreach($data['cardData'] as $k => $v) {
-                        if(empty($v)) {
-                            $data['cardData'][$k] = 'empty value!';
-                        }
-                        elseif($k == 'ccTempToken') {
-                            $data['cardData'][$k] = $v;
-                        }
-                        else {
-                            $data['cardData'][$k] = 'a string';
-                        }
-                    }
-                }
                 if(isset($data['userAccountDetails']) && is_array($data['userAccountDetails'])) {
                     foreach($data['userAccountDetails'] as $k => $v) {
                         $data['userAccountDetails'][$k] = 'a string';
@@ -199,12 +186,6 @@ class SC_CLASS
                     foreach($data['userPaymentOption'] as $k => $v) {
                         $data['userPaymentOption'][$k] = 'a string';
                     }
-                }
-                if(isset($data['paResponse']) && !empty($data['paResponse'])) {
-                    $data['paResponse'] = 'a long string';
-                }
-                if(isset($data['paReq']) && !empty($data['paReq'])) {
-                    $data['paReq'] = 'a long string';
                 }
                 
                 $d = print_r($data, true);
@@ -220,14 +201,16 @@ class SC_CLASS
                 $d = $title . "\r\n" . $d;
             }
             
-            $d .= "\r\n\r\n";
+            $d .= "\r\n";
             // same for all plugins
 
             try {
-                file_put_contents(
+                if(!file_put_contents(
                     SC_LOGS_DIR . date('Y-m-d', time()) . '.txt',
                     date('H:i:s', time()) . ': ' . $d, FILE_APPEND
-                );
+                )) {
+					
+				}
             }
             catch (Exception $exc) {
                 echo $exc->getMessage();
