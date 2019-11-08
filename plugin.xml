@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<plugin xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:noNamespaceSchemaLocation="https://raw.githubusercontent.com/shopware/shopware/5.3/engine/Shopware/Components/Plugin/schema/plugin.xsd">
+    <label lang="en">SafeCharge Payment Gateway</label>
+
+    <version>1.1.0</version>
+    <copyright>(c) by SafeCharge</copyright>
+    <!--<license>MIT</license>-->
+    <link>https://safecharge.com</link>
+    <author>SafeCharge</author>
+    <compatibility minVersion="5.3.0"/>
+    
+	<changelog version="1.1.0">
+        <changes lang="en">WebSDK version</changes>
+    </changelog>
+	
+	<changelog version="1.0.0">
+        <changes lang="en">First release</changes>
+    </changelog>
+</plugin>
