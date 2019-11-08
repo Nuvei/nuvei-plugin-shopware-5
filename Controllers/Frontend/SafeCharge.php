@@ -137,11 +137,11 @@ class Shopware_Controllers_Frontend_SafeCharge extends Shopware_Controllers_Fron
      */
     public function getDMNAction($params = array())
     {
-        $this->plugin_dir = dirname(dirname(dirname(__FILE__))) . DIRECTORY_SEPARATOR;
-        $this->logs_path = $this->plugin_dir . 'logs' . DIRECTORY_SEPARATOR;
-        $is_inside_call = true;
+        $this->plugin_dir	= dirname(dirname(dirname(__FILE__))) . DIRECTORY_SEPARATOR;
+        $this->logs_path	= $this->plugin_dir . 'logs' . DIRECTORY_SEPARATOR;
+        $is_inside_call		= true;
         
-        $this->sys_config = require 'config.php';
+        $this->sys_config	= require 'config.php';
         
         if(empty($params)) {
             $is_inside_call = false;
@@ -149,7 +149,7 @@ class Shopware_Controllers_Frontend_SafeCharge extends Shopware_Controllers_Fron
         }
         
         // there is a strange problem - something replace '&currency=' to '¤cy=' we have to fix it
-        if(isset($params['email']) && strpos($params['email'], '¤cy=') !== false) {
+        if(!empty($params['email']) && strpos($params['email'], '¤cy=') !== false) {
             $mail_parts = explode('¤', $params['email']);
             $params['email'] = $mail_parts[0];
             $params['currency'] = end(explode('=', $mail_parts[1]));

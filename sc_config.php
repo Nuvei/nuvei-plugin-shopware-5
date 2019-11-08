@@ -116,6 +116,15 @@ else {
     define('SC_TEST_SETTLE_URL', 'https://ppp-test.safecharge.com/ppp/api/v1/settleTransaction.do');
 }
 
+// Open Order URL
+define('SC_LIVE_OPEN_ORDER_URL', 'https://secure.safecharge.com/ppp/api/v1/openOrder.do');
+if (strpos(@$_SERVER['HTTP_HOST'], 'gw-4u.com') !== false) {
+	define('SC_TEST_OPEN_ORDER_URL', $sc_test_endpoint_host . '/openOrder.do');
+}
+else {
+	define('SC_TEST_OPEN_ORDER_URL', 'https://ppp-test.safecharge.com/ppp/api/v1/openOrder.do');
+}
+
 // user CPanel URLs
 define('SC_LIVE_CPANEL_URL', 'cpanel.safecharge.com');
 define('SC_TEST_CPANEL_URL', 'sandbox.safecharge.com');
