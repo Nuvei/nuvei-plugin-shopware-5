@@ -172,14 +172,19 @@ class Shopware_Controllers_Frontend_SafechargePayment extends Enlight_Controller
 			}
 
 
-
+			// set template variables
 			$this->View()->assign([
-				'cancelUrl'  => $router->assemble([
+				'cancelUrl'			=> $router->assemble([
 					'controller' => 'checkout',
-					'action' => 'confirm'
-				])
+					'action'	 => 'confirm'
+				]),
+				'apms'				=> @$apms['paymentMethods'],
+				'session_token'		=> $session_token,
+				'merchantSiteId'	=> $oo_params['merchantSiteId'],
+				'merchantId'		=> $oo_params['merchantId'],
+				'testMode'			=> $settings['swagSCTestMode'] === true ? 'yes' : 'no',
+				'langCode'			=> $apms_params['languageCode'],
 			]);
-			$this->View()->assign(['apms' => @$apms['paymentMethods']]);
 		}
 		// second call - collect the data and continue with the payment
 		else {
