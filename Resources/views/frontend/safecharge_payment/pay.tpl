@@ -35,6 +35,14 @@
 			color: #8798a9;
 			text-align: left;
 		}
+		
+		.sc_fields.focus {
+			box-shadow: 0 0 0 transparent;
+			outline: none;
+			border-color: #d9400b;
+			background: #fff;
+			color: #5f7285;
+		}
 	</style>
 {/block}
 
@@ -50,17 +58,13 @@
         <div class="hero-unit category--teaser panel has--border is--rounded">
             <div class="hero--text panel--body is--wide">
                 <form method="post" id="sc_payment_form">
-					<div class="alert is--error is--rounded">
+					<div id="apms_error_msg" class="alert is--error is--rounded" style="display: none;">
 						<div class="alert--icon">
 							<i class="icon--element icon--cross"></i>
 						</div>
 						
 						<div class="alert--content">
-							Alert message text
-							
-							<div class="btn icon--cross is--small btn--grey modal--close" 
-								 style="float: right" 
-								 onclick="$(this).parents('.alert').hide()"></div>
+							{s name="frontend/safecharge_payment/apms_alert"}Please, choose a payment method and fill its fields!{/s}
 						</div>
 					</div>
 					
@@ -93,7 +97,7 @@
 																			   type="{$fields.type}"
 																			   {if $fields.regex}pattern="{$fields.regex}"{/if}
 																			   placeholder="{if $fields.caption[0].message}{$fields.caption[0].message}{else}{$fields.name}{/if}"
-																			   class="sc_fields" />
+																			   class="sc_fields {$apm.paymentMethod}_fields" />
 
 																		{if $fields.regex and $fields.validationmessage[0].message}
 																			<i class="icon--question" onclick="$('#error_sc_{$fields.name}').toggle()" style="cursor: pointer;"></i>
@@ -162,21 +166,38 @@
 						var cardCvc                     = null;
 						var scData                      = {};
 						
-						
 						// show checkmark on selected payment method
 						function scShowCheckMark(_this) {
 							_this.closest('.panel--body').find('i.icon--check').hide();
 							_this.find('i.icon--check').show();
 							
 							$('#sc_payment_method').val(_this.attr('data-pm'));
-							
 						}
 
 						// check if payment method is selected and its fields are filled
 						function scVerifyFields() {
 							if($('#sc_payment_method').val() == "") {
+								$('#apms_error_msg').show();
+								return;
+							}
+							
+							// pay with card - use WebSDK
+							if($('#sc_payment_method').val() === 'cc_card') {
 								
 							}
+							
+							// pay with APM
+							// check for payment method fields
+							var pmFields = document.getElementsByClassName($('#sc_payment_method').val() + '_fields');
+							
+							for(var i in pmFields) {
+								if(typeof pmFields[i].value != 'undefined' && pmFields[i].value == '') {
+									$('#apms_error_msg').show();
+									return;
+								}
+							}
+							
+							
 						}
 						
 						scData.merchantSiteId   = '{$merchantSiteId}';
@@ -212,6 +233,42 @@
 								,style: fieldsStyle
 							});
 							cardCvc.attach('#sc_card_cvc');
+							
+							var scPaymentMethod = document.getElementById('sc_payment_method').value;
+							// check for cache, may be payment method is selected
+							if(scPaymentMethod != '') {
+								// array with labels
+								var lablesHolder = document.getElementsByTagName('label');
+								var stopBreak = false;
+								
+								try {
+									for(var i in lablesHolder) {
+										if(
+											typeof lablesHolder[i].getAttribute('data-pm') != 'undefined'
+											&& lablesHolder[i].getAttribute('data-pm') === scPaymentMethod
+										) {
+											// array with label childs
+											var labelChilds = lablesHolder[i].childNodes;
+
+											for(var j in labelChilds) {
+												if(
+													typeof labelChilds[j].className != 'undefined'
+													&& 'icon--check' === labelChilds[j].className
+												) {
+													labelChilds[j].style.display = 'inline-block';
+													stopBreak = true;
+													break;
+												}
+											}
+										}
+
+										if(stopBreak) {
+											break;
+										}
+									}
+								}
+								catch(exception) {}
+							}
 						}
 						catch(exception) {
 							alert('{s name="frontend/safecharge_payment/ex_alert"}Unexpected error, you can not pay with card at the moment!{/s}')
