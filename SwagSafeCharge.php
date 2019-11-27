@@ -24,7 +24,7 @@ class SwagSafeCharge extends Plugin
         $options = [
             'name'					=> 'safecharge_payment',
             'description'			=> 'SafeCharge Payment',
-            'action'				=> 'SafeCharge',
+            'action'				=> 'Payment',
             'active'				=> 1,
             'position'				=> 1,
             'additionalDescription'	=>

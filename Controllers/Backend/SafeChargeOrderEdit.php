@@ -12,6 +12,9 @@
 
 use Shopware\Components\CSRFGetProtectionAware;
 
+require_once dirname(dirname(dirname(__FILE__))) . DIRECTORY_SEPARATOR . 'sc_config.php';
+require_once dirname(dirname(dirname(__FILE__))) . DIRECTORY_SEPARATOR . 'SC_CLASS.php';
+
 class Shopware_Controllers_Backend_SafeChargeOrderEdit extends Shopware_Controllers_Backend_ExtJs implements CSRFGetProtectionAware
 {
     private $save_logs = false;
@@ -116,10 +119,6 @@ class Shopware_Controllers_Backend_SafeChargeOrderEdit extends Shopware_Controll
         
         $sc_order_field_arr = $this->getSCOrderData();
         
-        // if the data is ok
-        require_once dirname(dirname(dirname(__FILE__))) . DIRECTORY_SEPARATOR . 'sc_config.php';
-        require_once dirname(dirname(dirname(__FILE__))) . DIRECTORY_SEPARATOR . 'SC_CLASS.php';
-        
         if($this->request->getParam('scAction') == 'refund') {
             $this->orderRefund($sc_order_field_arr, $settigns);
         }
@@ -133,7 +132,7 @@ class Shopware_Controllers_Backend_SafeChargeOrderEdit extends Shopware_Controll
             $this->orderSettleAndVoid($sc_order_field_arr, $settigns);
         }
         
-        $this->createLog($this->request->getParam('scAction'), 'Unknown action: ');
+        SC_CLASS::create_log($this->request->getParam('scAction'), 'Unknown action: ');
         
         echo json_encode([
             'status' => 'error',
@@ -158,7 +157,7 @@ class Shopware_Controllers_Backend_SafeChargeOrderEdit extends Shopware_Controll
             ->container->get('db')
             ->fetchOne("SELECT safecharge_order_field FROM s_order_attributes WHERE orderID = " . $order_id);
         
-        $this->createLog($sc_order_field, 'Get SC order fields reponse: ');
+        SC_CLASS::create_log($sc_order_field, 'Get SC order fields reponse: ');
         
         if(!$sc_order_field) {
             echo json_encode([
@@ -431,7 +430,7 @@ class Shopware_Controllers_Backend_SafeChargeOrderEdit extends Shopware_Controll
             ->container->get('db')
             ->fetchAll("SELECT invoice_amount, currency, status FROM s_order WHERE id = " . $order_id);
         
-        $this->createLog($order_info, '$order_info: ');
+        SC_CLASS::create_log($order_info, '$order_info: ');
         
         if(!$order_info) {
             echo json_encode([
@@ -478,65 +477,8 @@ class Shopware_Controllers_Backend_SafeChargeOrderEdit extends Shopware_Controll
         
         $params['checksum'] = $checksum;
         
-        $this->createLog($params, 'The params for Void/Settle: ');
+        SC_CLASS::create_log($params, 'The params for Void/Settle: ');
         
         SC_REST_API::void_and_settle_order($params, $this->request->getParam('scAction'), true);
-    }
-
-    private function createLog($data, $title = '')
-    {
-        if(
-            $this->save_logs === true
-            || $this->Request()->getParam('save_logs') == 'yes'
-            || $_SESSION['sc_save_logs']
-        ) {
-            $d = '';
-
-            if(is_array($data)) {
-                foreach($data as $k => $dd) {
-                    if(is_array($dd)) {
-                        if(isset($dd['cardData'], $dd['cardData']['CVV'])) {
-                            $data[$k]['cardData']['CVV'] = md5($dd['cardData']['CVV']);
-                        }
-                        if(isset($dd['cardData'], $dd['cardData']['cardHolderName'])) {
-                            $data[$k]['cardData']['cardHolderName'] = md5($dd['cardData']['cardHolderName']);
-                        }
-                    }
-                }
-
-                $d = print_r($data, true);
-            }
-            elseif(is_object($data)) {
-                $d = print_r($data, true);
-            }
-            elseif(is_bool($data)) {
-                $d = $data ? 'true' : 'false';
-            }
-            else {
-                $d = $data;
-            }
-
-            if(!empty($title)) {
-                $d = $title . "\r\n" . $d;
-            }
-
-            if($this->logs_path && is_dir($this->logs_path)) {
-                try {
-                    $time = time();
-                    file_put_contents(
-                        $this->logs_path . date('Y-m-d', $time) . '.txt',
-                        date('H:i:s') . ': ' . $d . "\r\n", FILE_APPEND
-                    );
-                }
-                catch (Exception $exc) {
-                    die('@');
-                    echo
-                        '<script>'
-                            .'error.log("Log file was not created, by reason: '.$exc->getMessage().'");'
-                            .'console.log("Log file was not created, by reason: '.$data.'");'
-                        .'</script>';
-                }
-            }
-        }
     }
 }

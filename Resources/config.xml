@@ -37,22 +37,6 @@
             </store>
         </element>
         
-<!--        <element type="select" scope="locale">
-            <name>swagSCApi</name>
-            <label lang="en">Payment API</label>
-            <value>cashier</value>
-            <store>
-                <option>
-                    <value>cashier</value>
-                    <label>Cashier</label>
-                </option>
-                <option>
-                    <value>rest</value>
-                    <label>REST API</label>
-                </option>
-            </store>
-        </element>-->
-        
         <element type="select" scope="locale">
             <name>swagSCTransactionType</name>
             <label lang="en">Transaction Type</label>
@@ -86,19 +70,5 @@
             <label lang="en">Save logs</label>
             <value>true</value>
         </element>
-        
-<!--        <element type="button">
-            <name>buttonTest</name>
-            <label lang="en">Delete oldest logs</label>
-            <options>
-                <handler>
-                    <![CDATA[
-                    function(button) {
-                        deleteOldestLogs();
-                    }
-                    ]]>
-                </handler>
-            </options>
-        </element>-->
     </elements>
 </config>

@@ -43,6 +43,14 @@
 			background: #fff;
 			color: #5f7285;
 		}
+		
+		.is-in { z-index: 999 !important; }
+		
+		.sfcModal-dialog {
+			width: 50%;
+			margin: 0 auto;
+			margin-top: 10%;
+		}
 	</style>
 {/block}
 
@@ -57,7 +65,7 @@
     <div class="content listing--content">
         <div class="hero-unit category--teaser panel has--border is--rounded">
             <div class="hero--text panel--body is--wide">
-                <form method="post" id="sc_payment_form">
+                <form method="post" id="sc_payment_form" action="{$apmPaymentURL}">
 					<div id="apms_error_msg" class="alert is--error is--rounded" style="display: none;">
 						<div class="alert--icon">
 							<i class="icon--element icon--cross"></i>
@@ -75,6 +83,7 @@
 							<div class="panel panel--body">
 								<div class="filter--facet-container" style="display: block;">
 									<input type="hidden" id="sc_payment_method" name="sc_payment_method" value="" />
+									<input type="hidden" id="sc_transaction_id" name="sc_transaction_id" value="" />
 									
 									{foreach $apms as $apm}
 										<div class="filter-panel filter--multi-selection" data-filter-type="value-list">
@@ -183,7 +192,54 @@
 							
 							// pay with card - use WebSDK
 							if($('#sc_payment_method').val() === 'cc_card') {
-								
+								// create payment with WebSDK
+								sfc.createPayment({
+									sessionToken    : "{$session_token}",
+									merchantId      : "{$merchantId}",
+									merchantSiteId  : "{$merchantSiteId}",
+									currency        : "{$currency}",
+									amount          : "{$amount}",
+									cardHolderName  : document.getElementById('sc_card_holder_name').value,
+									paymentOption   : sfcFirstField
+								}, function(resp){
+									console.log(resp);
+
+									if(typeof resp.result != 'undefined') {
+										if(resp.result == 'APPROVED' && resp.transactionId != 'undefined') {
+											$('#sc_transaction_id').val(resp.transactionId);
+											
+											console.log('{$successURL}')
+											
+											$('#sc_payment_form')
+												.attr('action', '{$successURL}')
+												.submit();
+										
+											return;
+										}
+										else if(resp.result == 'DECLINED') {
+											alert("{s name="frontend/safecharge_payment/payment_declined"}Your Payment was DECLINED. Please try another payment method!{/s}");
+										}
+										else {
+											if(resp.errorDescription != 'undefined' && resp.errorDescription != '') {
+												alert(resp.errorDescription);
+											}
+											else if('undefined' != resp.reason && '' != resp.reason) {
+												alert(resp.reason);
+											}
+											else {
+												alert("{s name="frontend/safecharge_payment/payment_error"}Error with your Payment. Please try again later!{/s}");
+											}
+										}
+									}
+									else {
+										alert("{s name="frontend/safecharge_payment/payment_unex_error"}Unexpected error, please try again later!{/s}");
+										console.error('Error with SDK response: ' + resp);
+										return;
+									}
+
+									$('#payment-confirmation button.btn.btn-primary').prop('disabled', false);
+									$('#payment-confirmation button.btn.btn-primary .fast-right-spinner').addClass('sc_hide');
+								});
 							}
 							
 							// pay with APM
