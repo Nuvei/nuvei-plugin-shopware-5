@@ -143,5 +143,3 @@ define('SC_DEVICES_TYPES', json_encode(array('tablet', 'mobile', 'tv', 'windows'
 
 // list of devices OSs
 define('SC_DEVICES_OS', json_encode(array('android', 'windows', 'linux', 'mac os')));
-
-define('SC_LOGS_DIR', dirname(__FILE__) . DIRECTORY_SEPARATOR . 'logs' . DIRECTORY_SEPARATOR);

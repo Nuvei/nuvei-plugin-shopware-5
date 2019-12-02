@@ -13,7 +13,6 @@ require_once dirname(dirname(dirname(__FILE__))) . DIRECTORY_SEPARATOR . 'SC_CLA
 
 class Shopware_Controllers_Frontend_PaymentProvider extends Enlight_Controller_Action
 {
-    private $logs_path		= '';
     private $plugin_dir		= '';
     private $webMasterId	= 'ShopWare ';
     
@@ -24,7 +23,6 @@ class Shopware_Controllers_Frontend_PaymentProvider extends Enlight_Controller_A
         $this->get('template')->addTemplateDir($plugin->getPath() . '/Resources/views/');
         
         $this->plugin_dir	= dirname(dirname(dirname(__FILE__))) . DIRECTORY_SEPARATOR;
-        $this->logs_path	= $this->plugin_dir . 'logs' . DIRECTORY_SEPARATOR;
     }
     
     /**
@@ -90,13 +88,13 @@ class Shopware_Controllers_Frontend_PaymentProvider extends Enlight_Controller_A
 		$get_parameters = '?' . http_build_query($url_parameters);
 		
 		$success_url = $router->assemble([
-			'controller'	=> 'Payment',
-			'action'		=> 'return',
+			'controller'	=> 'PaymentRooter',
+			'action'		=> 'success',
 			'forceSecure'	=> true
 		]) . $get_parameters;
 		
 		$error_url = $router->assemble([
-			'controller'	=> 'PaymentProvider',
+			'controller'	=> 'PaymentRooter',
 			'action'		=> 'cancel',
 			'forceSecure'	=> true
 		]) . $get_parameters;
@@ -108,7 +106,7 @@ class Shopware_Controllers_Frontend_PaymentProvider extends Enlight_Controller_A
 		]);
 		
 		$notify_url = $router->assemble([
-			'controller'	=> 'Payment',
+			'controller'	=> 'PaymentRooter',
 			'action'		=> 'getDMN',
 			'forceSecure'	=> true
 		]) . '?sc_create_logs=' . $settings['swagSCSaveLogs'];

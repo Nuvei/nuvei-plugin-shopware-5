@@ -163,63 +163,60 @@ class SC_CLASS
      */
     public static function create_log($data, $title = '')
     {
-        
-        // path is different fore each plugin
-        if(!defined('SC_LOGS_DIR') && !is_dir(SC_LOGS_DIR)) {
-            die('SC_LOGS_DIR is not set!');
-        }
+        $logs_path = dirname(dirname(dirname(dirname(__FILE__)))) . DIRECTORY_SEPARATOR
+			. 'var' . DIRECTORY_SEPARATOR . 'log';
 		
-        if(
-            @$_REQUEST['sc_create_logs'] == 'yes' || @$_REQUEST['sc_create_logs'] == 1
-            || @$_SESSION['sc_create_logs'] == 'yes' || @$_SESSION['sc_create_logs'] == 1
-        ) {
-            // same for all plugins
-            $d = $data;
+		if(is_dir($logs_path)) {
+			if(
+				@$_REQUEST['sc_create_logs'] == 'yes' || @$_REQUEST['sc_create_logs'] == 1
+				|| @$_SESSION['sc_create_logs'] == 'yes' || @$_SESSION['sc_create_logs'] == 1
+			) {
+				// same for all plugins
+				$d = $data;
 
-            if(is_array($data)) {
-                if(isset($data['userAccountDetails']) && is_array($data['userAccountDetails'])) {
-                    foreach($data['userAccountDetails'] as $k => $v) {
-                        $data['userAccountDetails'][$k] = 'a string';
-                    }
-                }
-                if(isset($data['userPaymentOption']) && is_array($data['userPaymentOption'])) {
-                    foreach($data['userPaymentOption'] as $k => $v) {
-                        $data['userPaymentOption'][$k] = 'a string';
-                    }
-                }
-				
-				if(!empty($data['paymentMethods'])) {
-					$data['paymentMethods'] = json_encode($data['paymentMethods']);
+				if(is_array($data)) {
+					if(isset($data['userAccountDetails']) && is_array($data['userAccountDetails'])) {
+						foreach($data['userAccountDetails'] as $k => $v) {
+							$data['userAccountDetails'][$k] = 'a string';
+						}
+					}
+					if(isset($data['userPaymentOption']) && is_array($data['userPaymentOption'])) {
+						foreach($data['userPaymentOption'] as $k => $v) {
+							$data['userPaymentOption'][$k] = 'a string';
+						}
+					}
+
+					if(!empty($data['paymentMethods'])) {
+						$data['paymentMethods'] = json_encode($data['paymentMethods']);
+					}
+
+					$d = print_r($data, true);
 				}
-                
-                $d = print_r($data, true);
-            }
-            elseif(is_object($data)) {
-                $d = print_r($data, true);
-            }
-            elseif(is_bool($data)) {
-                $d = $data ? 'true' : 'false';
-            }
-
-            if(!empty($title)) {
-                $d = $title . "\r\n" . $d;
-            }
-            
-            $d .= "\r\n";
-            // same for all plugins
-
-            try {
-                if(!file_put_contents(
-                    SC_LOGS_DIR . date('Y-m-d', time()) . '.txt',
-                    date('H:i:s', time()) . ': ' . $d, FILE_APPEND
-                )) {
-					
+				elseif(is_object($data)) {
+					$d = print_r($data, true);
 				}
-            }
-            catch (Exception $exc) {
-                echo $exc->getMessage();
-            }
-        }
+				elseif(is_bool($data)) {
+					$d = $data ? 'true' : 'false';
+				}
+
+				if(!empty($title)) {
+					$d = $title . "\r\n" . $d;
+				}
+
+				$d .= "\r\n";
+				// same for all plugins
+
+				try {
+					if(!file_put_contents(
+						$logs_path . DIRECTORY_SEPARATOR . 'SafeCharge-' . date('Y-m-d', time()) . '.txt',
+						date('H:i:s', time()) . ': ' . $d, FILE_APPEND
+					)) {
+
+					}
+				}
+				catch (Exception $exc) {}
+			}
+		}
     }
 
 }

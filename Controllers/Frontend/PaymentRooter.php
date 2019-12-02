@@ -11,7 +11,7 @@ use SwagSafeCharge\Components\SafeCharge\PaymentResponse;
 require_once dirname(dirname(dirname(__FILE__))) . DIRECTORY_SEPARATOR . 'sc_config.php';
 require_once dirname(dirname(dirname(__FILE__))) . DIRECTORY_SEPARATOR . 'SC_CLASS.php';
 
-class Shopware_Controllers_Frontend_Payment extends Shopware_Controllers_Frontend_Payment
+class Shopware_Controllers_Frontend_PaymentRooter extends Shopware_Controllers_Frontend_Payment
 {
     // constants for order status, see db_name.s_core_states
     // states
@@ -49,7 +49,7 @@ class Shopware_Controllers_Frontend_Payment extends Shopware_Controllers_Fronten
 		
         switch ($this->getPaymentShortName()) {
             case 'safecharge_payment':
-                return $this->forward('processAction');
+                return $this->forward('process');
             default:
                 return $this->redirect(['controller' => 'checkout']);
         }
@@ -172,28 +172,28 @@ class Shopware_Controllers_Frontend_Payment extends Shopware_Controllers_Fronten
     {
         $this->plugin_dir	= dirname(dirname(dirname(__FILE__))) . DIRECTORY_SEPARATOR;
         $this->logs_path	= $this->plugin_dir . 'logs' . DIRECTORY_SEPARATOR;
-        $is_inside_call		= true;
+//        $is_inside_call		= true;
         
-        if(empty($params)) {
-            $is_inside_call = false;
+//        if(empty($params)) {
+//            $is_inside_call = false;
             $params = $this->Request()->getParams();
-        }
+//        }
         
         // there is a strange problem - something replace '&currency=' to '¤cy=' we have to fix it
-        if(!empty($params['email']) && strpos($params['email'], '¤cy=') !== false) {
-            $mail_parts = explode('¤', $params['email']);
-            $params['email'] = $mail_parts[0];
-            $params['currency'] = end(explode('=', $mail_parts[1]));
-        }
+//        if(!empty($params['email']) && strpos($params['email'], '¤cy=') !== false) {
+//            $mail_parts = explode('¤', $params['email']);
+//            $params['email'] = $mail_parts[0];
+//            $params['currency'] = end(explode('=', $mail_parts[1]));
+//        }
         
         SC_CLASS::create_log($params, 'DMN Request params: ');
         
         if(!$this->checkAdvRespChecksum($params)) {
             SC_CLASS::create_log('DMN report: You receive DMN from not trusted source. The process ends here.');
             
-            if($is_inside_call) {
-                return 'You receive DMN from not trusted source. The process ends here.';
-            }
+//            if($is_inside_call) {
+//                return 'You receive DMN from not trusted source. The process ends here.';
+//            }
             
             echo 'You receive DMN from not trusted source. The process ends here.';
             exit;
