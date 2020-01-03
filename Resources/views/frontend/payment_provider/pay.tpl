@@ -51,6 +51,30 @@
 			margin: 0 auto;
 			margin-top: 10%;
 		}
+        
+        .js--loading {
+            width: 18px;
+            width: 1.125rem;
+            height: 18px;
+            height: 1.125rem;
+            border-radius: 100%;
+            background-clip: padding-box;
+            right: 6px;
+            right: .375rem;
+            top: 2px;
+            top: .125rem;
+            margin: 8px 5px 8px 5px;
+            margin: .5rem .3125rem .5rem .3125rem;
+            -webkit-animation: keyframe--spin 1s linear infinite;
+            animation: keyframe--spin 1s linear infinite;
+            border: 2px solid #dadae5;
+                border-top-color: rgb(218, 218, 229);
+                border-top-style: solid;
+                border-top-width: 2px;
+            border-top: 2px solid #4f4f71;
+            display: none;
+            position: absolute;
+        }
 	</style>
 {/block}
 
@@ -66,6 +90,8 @@
         <div class="hero-unit category--teaser panel has--border is--rounded">
             <div class="hero--text panel--body is--wide">
                 <form method="post" id="sc_payment_form" action="{$apmPaymentURL}">
+                    <input type="hidden" name="session_token" value="{$session_token}" />
+                    
 					<div id="apms_error_msg" class="alert is--error is--rounded" style="display: none;">
 						<div class="alert--icon">
 							<i class="icon--element icon--cross"></i>
@@ -143,9 +169,14 @@
 					</div>
 					<br/>
 
-					<a class="btn is--primary" href="{$cancelUrl}">Cancel order</a>
-					<input type="button" class="btn is--secondary" value="Pay" onclick="scVerifyFields()" />
+                    <button type="button" class="btn is--primary" preloader-button="true" onclick="window.location='{$cancelUrl}'">
+                        Cancel order
+                    </button>
 
+                    <button type="button" class="btn is--secondary" preloader-button="true" onclick="scVerifyFields()">
+                        Pay<i class="js--loading"></i>
+                    </button>
+                    
 					<script type="text/javascript">
 						// styles for the fields
 						var fieldsStyle = {
@@ -189,9 +220,13 @@
 								$('#apms_error_msg').show();
 								return;
 							}
-							
+                            
 							// pay with card - use WebSDK
 							if($('#sc_payment_method').val() === 'cc_card') {
+								$('.is--primary, .is--secondary').prop('disabled', true);
+								$('.is--secondary').css('width', 76);
+								$('.js--loading').show();
+								
 								// create payment with WebSDK
 								sfc.createPayment({
 									sessionToken    : "{$session_token}",
@@ -200,7 +235,8 @@
 									currency        : "{$currency}",
 									amount          : "{$amount}",
 									cardHolderName  : document.getElementById('sc_card_holder_name').value,
-									paymentOption   : sfcFirstField
+									paymentOption   : sfcFirstField,
+									webMasterId		: "{$webMasterId}"
 								}, function(resp){
 									console.log(resp);
 
@@ -208,38 +244,39 @@
 										if(resp.result == 'APPROVED' && resp.transactionId != 'undefined') {
 											$('#sc_transaction_id').val(resp.transactionId);
 											
-											console.log('{$successURL}')
-											
 											$('#sc_payment_form')
 												.attr('action', '{$successURL}')
 												.submit();
 										
 											return;
+											console.log('after retun')
 										}
-										else if(resp.result == 'DECLINED') {
+										
+										if(resp.result == 'DECLINED') {
 											alert("{s name="frontend/safecharge_payment/payment_declined"}Your Payment was DECLINED. Please try another payment method!{/s}");
 										}
 										else {
-											if(resp.errorDescription != 'undefined' && resp.errorDescription != '') {
+											if(typeof resp.errorDescription != 'undefined' && resp.errorDescription != '') {
 												alert(resp.errorDescription);
 											}
-											else if('undefined' != resp.reason && '' != resp.reason) {
+											else if('undefined' != typeof resp.reason && '' != resp.reason) {
 												alert(resp.reason);
 											}
 											else {
-												alert("{s name="frontend/safecharge_payment/payment_error"}Error with your Payment. Please try again later!{/s}");
+												alert("{s name="frontend/safecharge_payment/payment_error"}Error with your Payment. Check your credentiols and try again later!{/s}");
 											}
 										}
 									}
 									else {
 										alert("{s name="frontend/safecharge_payment/payment_unex_error"}Unexpected error, please try again later!{/s}");
-										console.error('Error with SDK response: ' + resp);
-										return;
 									}
 
-									$('#payment-confirmation button.btn.btn-primary').prop('disabled', false);
-									$('#payment-confirmation button.btn.btn-primary .fast-right-spinner').addClass('sc_hide');
+									$('.is--primary, .is--secondary').prop('disabled', false);
+									$('.is--secondary').css('width', 'auto');
+									$('.js--loading').hide();
 								});
+								
+								return;
 							}
 							
 							// pay with APM
@@ -252,10 +289,10 @@
 									return;
 								}
 							}
-							
-							
+                            
+                            $('#sc_payment_form').submit();
 						}
-						
+						console.log('apm');
 						scData.merchantSiteId   = '{$merchantSiteId}';
 						scData.merchantId       = '{$merchantId}';
 						scData.sessionToken     = '{$session_token}';

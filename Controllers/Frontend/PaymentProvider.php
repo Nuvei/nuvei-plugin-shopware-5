@@ -119,8 +119,10 @@ class Shopware_Controllers_Frontend_PaymentProvider extends Enlight_Controller_A
 		}
 		
 		$this->View()->assign([
-			'apmPaymentURL' => true === $settings['swagSCTestMode'] ? SC_TEST_PAYMENT_URL : SC_LIVE_PAYMENT_URL,
+//			'apmPaymentURL' => true === $settings['swagSCTestMode'] ? SC_TEST_PAYMENT_URL : SC_LIVE_PAYMENT_URL,
+			'apmPaymentURL' => '',
 			'successURL'	=> $success_url,
+			'webMasterId'	=> $this->webMasterId,
 		]);
 		
 		// first call - user must select payment method
@@ -131,7 +133,7 @@ class Shopware_Controllers_Frontend_PaymentProvider extends Enlight_Controller_A
 			$oo_params = array(
 				'merchantId'        => $settings['swagSCMerchantId'],
 				'merchantSiteId'    => $settings['swagSCMerchantSiteId'],
-				'clientRequestId'   => $time . '_' . uniqid(),
+				'clientRequestId'   => $url_parameters['signature'],
 				'amount'            => $total_amount,
 				'currency'          => $this->Request()->getParam('currency'),
 				'timeStamp'         => $time,
@@ -148,7 +150,8 @@ class Shopware_Controllers_Frontend_PaymentProvider extends Enlight_Controller_A
 					'country' => $user['additional']['country']['countryiso'],
 				),
 				'webMasterId'       => $this->webMasterId,
-				'paymentOption'		=> ['card' => ['threeD' => ['isDynamic3D' => 1]]]
+				'paymentOption'		=> ['card' => ['threeD' => ['isDynamic3D' => 1]]],
+				'transactionType'	=> $settings['swagSCTransactionType'],
 			);
 
 			$oo_params['checksum'] = hash(
@@ -221,86 +224,107 @@ class Shopware_Controllers_Frontend_PaymentProvider extends Enlight_Controller_A
 		}
 		// second call - collect the data and continue with an APM payment
 		else {
-			// WebSDK payment
-			if($this->Request()->getParam('sc_transaction_id')) {
-				
+			$params = array(
+                'merchantId'        => $settings['swagSCMerchantId'],
+                'merchantSiteId'    => $settings['swagSCMerchantSiteId'],
+                'userTokenId'       => $user['additional']['user']['email'],
+                'clientRequestId'   => $time . '_' . uniqid(),
+                'currency'          => $this->Request()->getParam('currency'),
+                'amount'            => (string) $total_amount,
+                'amountDetails'     => array(
+                    'totalShipping'     => '0.00',
+                    'totalHandling'     => '0.00',
+                    'totalDiscount'     => '0.00',
+                    'totalTax'          => '0.00',
+                ),
+                'shippingAddress'   => array(
+                    'firstName'         => urlencode(preg_replace("/[[:punct:]]/", '', $user['shippingaddress']['firstname'])),
+                    'lastName'          => urlencode(preg_replace("/[[:punct:]]/", '', $user['shippingaddress']['lastname'])),
+                    'address'           => urlencode(preg_replace("/[[:punct:]]/", '', $user['shippingaddress']['street'])),
+                    'zip'               => urlencode(preg_replace("/[[:punct:]]/", '', $user['shippingaddress']['zipcode'])),
+                    'city'              => urlencode(preg_replace("/[[:punct:]]/", '', $user['shippingaddress']['city'])),
+                    'country'           => urlencode(preg_replace("/[[:punct:]]/", '', $user['additional']['countryShipping']['countryiso'])),
+                    'state'             => '',
+                    'email'             => '',
+                    'phone'             => '',
+                    'shippingCounty'    => '',
+                    'cell'              => '',
+                ),
+                'urlDetails'        => array(
+                    'successUrl'        => $success_url,
+                    'failureUrl'        => $error_url,
+                    'pendingUrl'        => $success_url,
+                    'notificationUrl'   => $notify_url,
+                ),
+                'timeStamp'         => $time,
+                'webMasterId'       => $this->webMasterId,
+                'deviceDetails'     => SC_CLASS::get_device_details(),
+                'sessionToken'      => $this->Request()->getParam('session_token'),
+            );
+            
+            $params['userDetails'] = array(
+                'firstName'         => urlencode(preg_replace("/[[:punct:]]/", '', $user['billingaddress']['firstname'])),
+                'lastName'          => urlencode(preg_replace("/[[:punct:]]/", '', $user['billingaddress']['lastname'])),
+                'address'           => urlencode(preg_replace("/[[:punct:]]/", '', $user['billingaddress']['street'])),
+                'phone'             => urlencode(preg_replace("/[[:punct:]]/", '', $user['billingaddress']['phone'])),
+                'zip'               => urlencode(preg_replace("/[[:punct:]]/", '', $user['billingaddress']['zipcode'])),
+                'city'              => urlencode(preg_replace("/[[:punct:]]/", '', $user['billingaddress']['city'])),
+                'country'           => urlencode(preg_replace("/[[:punct:]]/", '', $user['additional']['country']['countryiso'])),
+                'state'             => isset($user['additional']['state']['name']) ? 
+                    urlencode(preg_replace("/[[:punct:]]/", '', $user['additional']['state']['name'])) : '',
+                'email'             => $user['additional']['user']['email'],
+                'county'            => '',
+            );
+            
+            $params['billingAddress']           = $params['userDetails'];
+            $params['billingAddress']['cell']   = '';
+            
+            $params['items'][0] = array(
+                'name'      => $this->Request()->getParam('signature'),
+                'price'     => (string) $total_amount,
+                'quantity'  => 1,
+            );
+            
+            $params['checksum'] = hash(
+                $settings['swagSCHash'],
+                $params['merchantId'] . $params['merchantSiteId'] . $params['clientRequestId']
+                    . $params['amount'] . $params['currency'] . $time . $settings['swagSCSecret']
+            );
+            
+            $params['paymentMethod']	= $this->Request()->getParam('sc_payment_method');
+            $post_sc_payment_fields		= $this->Request()->getParam($params['paymentMethod']);
+            
+			if (!empty($post_sc_payment_fields)) {
+				$params['userAccountDetails'] = $post_sc_payment_fields;
 			}
-			// APM payment
-			else {
-				
+			
+			$endpoint_url = true === $settings['swagSCTestMode'] ? SC_TEST_PAYMENT_URL : SC_LIVE_PAYMENT_URL;
+		
+			$resp = SC_CLASS::call_rest_api($endpoint_url, $params);
+			
+			// go to error page without message
+			if (
+				!$resp
+				|| 'ERROR' === $resp['status']
+				|| ( isset($resp['transactionStatus']) && 'ERROR' === $resp['transactionStatus'] )
+			) {
+				$this->redirect(
+					$router->assemble(['controller' => 'PaymentProvider', 'action' => 'cancel'])
+				);
 			}
 			
+			// on declined order set message
+			if (isset($resp['transactionStatus']) && 'DECLINED' === $resp['transactionStatus']) {
+				$this->View()->assign(['message' => 'Order DECLINED. Please contact the merchant or try another payment method!']);
+				
+				$this->redirect(
+					$router->assemble(['controller' => 'PaymentProvider', 'action' => 'cancel'])
+				);
+			}
 			
-			
-			
-			
-			$params['handling']         = '0.00';
-			$params['total_tax']        = '0.00';
-			$params['discount']         = '0.00';
-			
-			$params['time_stamp']       = $time;
-			$params['encoding']         = 'utf-8';
-			$params['version']          = '4.0.0';
-			$params['total_amount']		= $total_amount;
-
-			// here we still do not have saved order, so we can not use order id
-			$params['invoice_id']           = $url_parameters['signature'] . '_' . $TimeStamp;
-			$params['merchant_unique_id']   = $url_parameters['signature'];
-			$params['merchantId']			= $settings['swagSCMerchantId'];
-			$params['merchantSiteId']		= $settings['swagSCMerchantSiteId'];
-
-			$params['items[0][name]']       = $time;
-			$params['items[0][price]']      = $total_amount;
-			$params['items[0][quantity]']   = 1;
-			
-			$params['numberofitems']        = 1;
-			$params['payment_method']       = $this->Request()->getParam('sc_payment_method');
-			
-
-			
-			
-			
-
-			$rest_params = array(
-				'secret_key'        => $settings['swagSCSecret'],
-				'merchantId'        => $settings['swagSCMerchantId'],
-				'merchantSiteId'    => $settings['swagSCMerchantSiteId'],
-				'currencyCode'      => $this->Request()->getParam('currency'),
-				'languageCode'      => strlen($locale) > 2 ? substr($locale, 0, 2) : $locale,
-				'sc_country'        => $basket['sCountry']['countryiso'],
-				'payment_api'       => $settings['swagSCApi'],
-				'transaction_type'  => $settings['swagSCTransactionType'],
-				'test'              => $settings['swagSCTestMode'] ? 'yes' : 'no',
-				'hash_type'         => $settings['swagSCHash'],
-				'force_http'        => $settings['swagSCUseHttp'] ? 'yes' : 'no',
-				'create_logs'       => $settings['swagSCSaveLogs'],
+			$this->redirect(
+				$success_url . '&transactionId=' . @$resp['transactionId']
 			);
-
-			// client request id 1
-			$time = date('YmdHis', time());
-			$rest_params['cri1'] = $time. '_' .uniqid();
-
-			// checksum 1 - checksum for session token
-			$rest_params['cs1'] = hash(
-				$rest_params['hash_type'],
-				$rest_params['merchantId'] . $rest_params['merchantSiteId']
-					. $rest_params['cri1'] . $time . $rest_params['secret_key']
-			);
-
-			// client request id 2
-			$time = date('YmdHis', time());
-			$rest_params['cri2'] = $time. '_' .uniqid();
-
-			// checksum 2 - checksum for get apms
-			$time = date('YmdHis', time());
-			$rest_params['cs2'] = hash(
-				$rest_params['hash_type'],
-				$rest_params['merchantId'] . $rest_params['merchantSiteId']
-					. $rest_params['cri2'] . $time . $rest_params['secret_key']
-			);
-
-			// TODO - call REST API and redirect !
-			die('die');
 		}
     }
     
@@ -333,7 +357,7 @@ class Shopware_Controllers_Frontend_PaymentProvider extends Enlight_Controller_A
 		$params['state'] = isset($user['additional']['state']['name']) ? 
             urlencode(preg_replace("/[[:punct:]]/", '', $user['additional']['state']['name'])) : '';
 		$params['country'] =
-            urlencode(preg_replace("/[[:punct:]]/", '', $user['additional']['country']['countryname']));
+            urlencode(preg_replace("/[[:punct:]]/", '', $user['additional']['country']['countryiso']));
 		$params['phone1'] =
             urlencode(preg_replace("/[[:punct:]]/", '', $user['billingaddress']['phone']));
 		

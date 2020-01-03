@@ -1,7 +1,7 @@
 <?php
 
 /**
- * SC_HELPER Class
+ * SC_CLASS Class
  * 
  * @year 2019
  * @author SafeCharge

@@ -11,7 +11,7 @@
                 <h3>If you want to try again click on the basket above and proceed to checkout.</h3>
                 
                 {if $message}
-                    <i>{$message}</i>
+                    <i>{s name="frontend/safecharge_payment/cancel_message"}$message{/s}</i>
                 {/if}
             </div>
         </div>
