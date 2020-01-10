@@ -20,38 +20,44 @@ Ext.define('Shopware.apps.Order.view.detail.Overview', {
     ,scOrderActions: function(action, btnId, refId, ordId) {
         var me = this;
         
-        
+		console.log(action)
         console.log(btnId)
+        console.log(refId)
+        console.log(ordId)
+        console.log(me.record.get('id'))
         
-    //    Ext.ComponentQuery.query('#'+btnId)[0].hide();
-        console.log(action)
+//        Ext.ComponentQuery.query('#'+btnId)[0].hide();
         
         var reqData = {
-            scAction: action
-            ,appendCSRFToken: true
+            scAction			: action
+            ,appendCSRFToken	: true
+			,orderId			: me.record.get('id')
         };
         
         if(action == 'refund' || action == 'manualRefund') {
             Ext.ComponentQuery.query('#scPanelLoadingImg')[0].show();
             
             reqData.refundAmount = document.getElementsByName('scRefundAmount')[0].value;
-            reqData.orderId = me.record.get('id');
+//            reqData.orderId = me.record.get('id');
         }
         else if(action == 'deleteRefund') {
             Ext.ComponentQuery.query('#scRefundsLoadingImg')[0].show();
             
             reqData.refundId = refId;
-            reqData.orderId = ordId;
+//            reqData.orderId = ordId;
         }
-return;
+		
         Ext.Ajax.request({
             url: '{url controller=SafeChargeOrderEdit action="process"}',
             method: 'POST',
             params: reqData,
-            success: function(response) {
+            
+			success: function(response) {
                 var resp = Ext.decode(response.responseText);
-                if (resp.status == 'success' || resp.status == 1) {
-                    Ext.ComponentQuery.query('#scPanelLoadingImg')[0].hide();
+                
+				if (resp.status == 'success' || resp.status == 1) {
+//                    Ext.ComponentQuery.query('#scPanelLoadingImg')[0].hide();
+					Ext.ComponentQuery.query('#'+btnId)[0].hide();
                     
                     if(action == 'deleteRefund') {
                         // hide the refund row
@@ -154,7 +160,7 @@ return;
             params: { orderId: me.record.get('id') },
             success: function(response) {
                 var resp = Ext.decode(response.responseText);
-                
+
                 if (resp.status == 'success') {
                     if(
                         typeof resp.scOrderData.relatedTransactionId == 'undefined'
@@ -174,6 +180,13 @@ return;
 
                         return;
                     }
+					
+					var scOtherOptionsArea = Ext.create('Ext.form.FieldSet', {
+                        title: 'SafeCharge other options',
+                        layout: 'hbox',
+                        labelWidth: 75,
+                        items: []
+                    });
                     
                     // enable Refund button
                     if(typeof resp.scEnableRefund != 'undefined' && resp.scEnableRefund) {
@@ -226,13 +239,6 @@ return;
                     }
                     // enable Refund button END
                     
-                    var scOtherOptionsArea = Ext.create('Ext.form.FieldSet', {
-                        title: 'SafeCharge other options',
-                        layout: 'hbox',
-                        labelWidth: 75,
-                        items: []
-                    });
-                    
                     // enable Void
                     if(typeof resp.scEnableVoid != 'undefined' && resp.scEnableVoid) {
                         // other options area
@@ -281,7 +287,7 @@ return;
                     if(scOtherOptionsArea.items.length > 0) {
                         scFinalItems.push(scOtherOptionsArea);
                     }
-                    
+					
                     Ext.ComponentQuery.query('#scPanelLoadingImg')[0].hide();
                     
                     Ext.ComponentQuery.query('#scFinalContainer')[0].add({
@@ -291,7 +297,7 @@ return;
                    });
                    
                    // Show Refunds
-                   if(
+					if(
                         typeof resp.scOrderData.refunds != 'undefined'
                         && resp.scOrderData.refunds.length > 0
                     ) {

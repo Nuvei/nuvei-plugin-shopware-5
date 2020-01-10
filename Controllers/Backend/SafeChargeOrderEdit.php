@@ -17,8 +17,10 @@ require_once dirname(dirname(dirname(__FILE__))) . DIRECTORY_SEPARATOR . 'SC_CLA
 
 class Shopware_Controllers_Backend_SafeChargeOrderEdit extends Shopware_Controllers_Backend_ExtJs implements CSRFGetProtectionAware
 {
-    private $save_logs = false;
-    private $logs_path = '';
+    private $save_logs		= false;
+    private $logs_path		= '';
+	private $webMasterId	= 'ShopWare ';
+	private $notify_url;
     
     // constants for order status, see db_name.s_core_states
     // states
@@ -44,34 +46,36 @@ class Shopware_Controllers_Backend_SafeChargeOrderEdit extends Shopware_Controll
      */
     public function getSCOrderDataAction()
     {
-        $conn = $this->container->get('db');
-        $order_id = intval($this->request->getParam('orderId'));
-        $sc_order_field_arr = $this->getSCOrderData();
+		$settigns = $this->container->get('shopware.plugin.cached_config_reader')
+            ->getByPluginName('SwagSafeCharge');
+        
+        $_SESSION['sc_save_logs'] = $this->save_logs = $settigns['swagSCSaveLogs'];
+		
+        $conn				= $this->container->get('db');
+        $order_id			= intval($this->request->getParam('orderId'));
+        $sc_order_field_arr	= $this->getSCOrderData();
         
         // get refunds
         $sc_order_field_arr['refunds'] = $conn
             ->fetchAll("SELECT * FROM swag_safecharge_refunds WHERE order_id = " . $order_id);
         
-        $order_data = $conn->fetchOne("SELECT status FROM s_order WHERE id = " . $order_id);
-        
-        $sc_enable_void = false;
-        if(in_array($order_data['status'], [self::SC_ORDER_IN_PROGRESS, self::SC_ORDER_COMPLETED])) {
+        $order_status		= intval($conn->fetchOne("SELECT status FROM s_order WHERE id = " . $order_id));
+        $sc_enable_void		= false;
+		$sc_enable_refund	= false;
+		
+        if(in_array($order_status, [self::SC_ORDER_IN_PROGRESS, self::SC_ORDER_COMPLETED])) {
             $sc_enable_void = true;
-        }
-        
-        $sc_enable_refund = false;
-        if(
-            in_array($order_data['status'], [self::SC_ORDER_COMPLETED, self::SC_ORDER_IN_PROGRESS])
-            && in_array($sc_order_field_arr['respTransactionType'], ['cc_card', 'dc_card', 'apmgw_expresscheckout'])
-        ) {
-            $sc_enable_refund = true;
+			
+			if(in_array(@$sc_order_field_arr['paymentMethod'], ['cc_card', 'dc_card', 'apmgw_expresscheckout'])) {
+				$sc_enable_refund = true;
+			}
         }
         
         echo json_encode([
-            'status' => 'success',
-            'scOrderData' => $sc_order_field_arr,
-            'scEnableVoid' => $sc_enable_void,
-            'scEnableRefund' => $sc_enable_refund,
+            'status'			=> 'success',
+            'scOrderData'		=> $sc_order_field_arr,
+            'scEnableVoid'		=> $sc_enable_void,
+            'scEnableRefund'	=> $sc_enable_refund,
         ]);
         
         exit;
@@ -109,30 +113,35 @@ class Shopware_Controllers_Backend_SafeChargeOrderEdit extends Shopware_Controll
      */
     public function processAction()
     {
-        $settigns = $this->container->get('shopware.plugin.cached_config_reader')
+        $settigns	= $this->container->get('shopware.plugin.cached_config_reader')
             ->getByPluginName('SwagSafeCharge');
+		$router		= Shopware()->Front()->Router();
         
-        $this->save_logs = $settigns['swagSCSaveLogs'];
-        $this->logs_path = dirname(dirname(dirname(__FILE__))) . DIRECTORY_SEPARATOR . 'logs' . DIRECTORY_SEPARATOR;
-        
-        $_SESSION['sc_save_logs'] = $this->save_logs;
+        $_SESSION['sc_create_logs'] = $settigns['swagSCSaveLogs'] ? 1 : 0;
         
         $sc_order_field_arr = $this->getSCOrderData();
+		$scAction			= $this->request->getParam('scAction');
+		$this->notify_url	= $router->assemble(['module'=> 'frontend', 'controller' => 'PaymentRooter', 'action' => 'getDMN'])
+            . '?sc_create_logs=' . $_SESSION['sc_create_logs'];
+		
+		if($settings['swagSCUseHttp']) {
+            $this->notify_url = str_replace('https:', 'http:', $this->notify_url);
+        }
         
-        if($this->request->getParam('scAction') == 'refund') {
+        if($scAction == 'refund') {
             $this->orderRefund($sc_order_field_arr, $settigns);
         }
-        elseif($this->request->getParam('scAction') == 'manualRefund') {
+        elseif($scAction == 'manualRefund') {
             $this->orderRefund($sc_order_field_arr, $settigns, true);
         }
-        elseif($this->request->getParam('scAction') == 'deleteRefund') {
+        elseif($scAction == 'deleteRefund') {
             $this->orderDeleteRefund();
         }
-        elseif($this->request->getParam('scAction') == 'settle') {
+        elseif(in_array($scAction, ['settle', 'void'])) {
             $this->orderSettleAndVoid($sc_order_field_arr, $settigns);
         }
         
-        SC_CLASS::create_log($this->request->getParam('scAction'), 'Unknown action: ');
+        SC_CLASS::create_log($scAction, 'Unknown action: ');
         
         echo json_encode([
             'status' => 'error',
@@ -158,11 +167,13 @@ class Shopware_Controllers_Backend_SafeChargeOrderEdit extends Shopware_Controll
             ->fetchOne("SELECT safecharge_order_field FROM s_order_attributes WHERE orderID = " . $order_id);
         
         SC_CLASS::create_log($sc_order_field, 'Get SC order fields reponse: ');
-        
+		
         if(!$sc_order_field) {
             echo json_encode([
-                'status' => 'error',
-                'msg' => 'This order is not paid with SafeCharge Paygate or transactoin data is missing.'
+                'status'	=> 'error',
+                'msg'		=> 'This order is not paid with SafeCharge Paygate or transactoin data is missing.',
+				'data'		=> $sc_order_field,
+				'query'		=> "SELECT safecharge_order_field FROM s_order_attributes WHERE orderID = " . $order_id
             ]);
             
             exit;
@@ -202,25 +213,16 @@ class Shopware_Controllers_Backend_SafeChargeOrderEdit extends Shopware_Controll
      */
     private function orderRefund($payment_custom_fields, $settings, $is_manual = false)
     {
-        $clientUniqueId = uniqid();
-        $router = Shopware()->Front()->Router();
-        $conn = $this->container->get('db');
-        
-        $order_id = intval($this->Request()->getParam('orderId'));
-        
-        $notify_url = $router->assemble(['controller' => 'SafeCharge', 'action' => 'getDMN'])
-            . '?save_logs=' . $settings['swagSCSaveLogs'];
-            
-        if($settings['swagSCUseHttp']) {
-            $notify_url = str_replace('https:', 'http:', $notify_url);
-        }
-        
-        $order_data = current($conn->fetchAll("SELECT invoice_amount, currency, status FROM s_order WHERE id = " . $order_id));
+        $clientUniqueId	= uniqid();
+        $conn			= $this->container->get('db');
+        $order_id		= intval($this->Request()->getParam('orderId'));
+        $order_data		= current($conn->fetchAll(
+			"SELECT invoice_amount, currency, status FROM s_order WHERE id = " . $order_id));
         
         if($order_data['status'] != self::SC_ORDER_COMPLETED) {
             echo json_encode([
-                'status' => 'error',
-                'msg' => 'To create Refund, the Order must be Completed.'
+                'status'	=> 'error',
+                'msg'		=> 'To create Refund, the Order must be Completed.'
             ]);
             exit;
         }
@@ -240,15 +242,14 @@ class Shopware_Controllers_Backend_SafeChargeOrderEdit extends Shopware_Controll
         
         if(($refund_amount + $refunded_amount) > $order_data['invoice_amount']) {
             echo json_encode([
-                'status' => 'error',
-                'msg' => 'Refund request Amount is too big.'
+                'status'	=> 'error',
+                'msg'		=> 'Refund request Amount is too big.'
             ]);
             exit;
         }
         
         // manual Refund stops here
         if($is_manual) {
-            
             try {
                 $conn->insert(
                     'swag_safecharge_refunds',
@@ -261,97 +262,89 @@ class Shopware_Controllers_Backend_SafeChargeOrderEdit extends Shopware_Controll
             }
             catch(Exception $e) {
                 echo json_encode([
-                    'status' => 'error',
-                    'msg' => $e->getMessage()
+                    'status'	=> 'error',
+                    'msg'		=> $e->getMessage()
                 ]);
                 exit;
             }
                 
             echo json_encode([
-                'status' => 'success',
-                'msg' => 'The Refund was saved.'
+                'status'	=> 'success',
+                'msg'		=> 'The Refund was saved.'
             ]);
             exit;
         }
         
-        $json_arr = SC_REST_API::refund_order(
-            $settings
-            ,array(
-                'id' => $clientUniqueId,
-                'amount' => $this->request->getParam('refundAmount'),
-                'reason' => '' // no reason field
-            )
-            ,array(
-                'order_tr_id' => $payment_custom_fields['relatedTransactionId'],
-                'auth_code' => $payment_custom_fields['authCode'],
-            )
-            ,$order_data['currency']
-            ,$notify_url
-        );
-        
-        if(!$json_arr) {
+		$time = date('YmdHis', time());
+		
+		$ref_parameters = array(
+			'merchantId'            => $settings['swagSCMerchantId'],
+			'merchantSiteId'        => $settings['swagSCMerchantSiteId'],
+			'clientRequestId'       => $time . '_' . $payment_custom_fields['relatedTransactionId'],
+			'clientUniqueId'        => $clientUniqueId,
+			'amount'                => number_format($this->request->getParam('refundAmount'), 2, '.', ''),
+			'currency'              => $order_data['currency'],
+			'relatedTransactionId'  => $payment_custom_fields['relatedTransactionId'],
+			'authCode'              => $payment_custom_fields['authCode'],
+			'comment'               => '',
+			'timeStamp'             => $time,
+		);
+		
+		$checksum_str = implode('', $ref_parameters);
+		
+		$checksum = hash(
+			$settings['swagSCHash'],
+			$checksum_str . $settings['swagSCSecret']
+		);
+		
+		$ref_parameters['checksum']    = $checksum;
+		$ref_parameters['urlDetails']  = array('notificationUrl' => $notify_url);
+		$ref_parameters['webMasterId'] = $this->webMasterId
+			. $this->container->getParameter('shopware.release.version');
+		
+		$resp = SC_CLASS::call_rest_api(
+			$settings['swagSCTestMode'] == 1 ? SC_TEST_REFUND_URL : SC_LIVE_REFUND_URL,
+			$ref_parameters
+		);
+		
+        if(!$resp) {
             echo json_encode([
-                'status' => 'error',
-                'msg' => 'There is an error with the request response.'
+                'status'	=> 'error',
+                'msg'		=> 'There is an error with the request response.'
             ]);
             exit;
         }
         
         // in case we have message but without status
-        if(!isset($json_arr['status']) && isset($json_arr['msg'])) {
+        if(!isset($resp['status']) && isset($resp['msg'])) {
             // save response message in the History
-            $msg = 'Request Refund #' . $clientUniqueId . ' problem: ' . $json_arr['msg'];
+            $msg = 'Request Refund #' . $clientUniqueId . ' problem: ' . $resp['msg'];
             
             // to try refund the Order must be completed
-            $order_module->setOrderStatus($order_id, self::SC_ORDER_COMPLETED, false, $msg);
-            $order_module->setPaymentStatus($order_id, self::SC_ORDER_COMPLETED, false, $msg);
+//            $order_module->setOrderStatus($order_id, self::SC_ORDER_COMPLETED, false, $msg);
+//            $order_module->setPaymentStatus($order_id, self::SC_ORDER_COMPLETED, false, $msg);
             
             echo json_encode([
-                'status' => 'error',
-                'msg' => $msg
+                'status'	=> 'error',
+                'msg'		=> $msg
             ]);
             exit;
         }
         
-        $refund_url = SC_TEST_REFUND_URL;
-        $cpanel_url = SC_TEST_CPANEL_URL;
-
-        if($settings['test'] == 'no') {
-            $refund_url = SC_LIVE_REFUND_URL;
-            $cpanel_url = SC_LIVE_CPANEL_URL;
-        }
-        
-        $msg = '';
+        $cpanel_url = $settings['swagSCTestMode'] == 1 ? SC_TEST_CPANEL_URL : SC_LIVE_CPANEL_URL;
+        $msg		= '';
         $error_note = 'Request Refund #' . $clientUniqueId . ' fail, if you want login into <i>' . $cpanel_url
             . '</i> and refund Transaction ID ' . $payment_custom_fields[SC_GW_TRANS_ID_KEY];
 
-        if(!is_array($json_arr)) {
-            parse_str($resp, $json_arr);
-        }
-
-        if(!is_array($json_arr)) {
-            $msg = 'Invalid API response. ' . $error_note;
-
-            $order_module->setOrderStatus($order_id, self::SC_ORDER_COMPLETED, false, $msg);
-            $order_module->setPaymentStatus($order_id, self::SC_ORDER_COMPLETED, false, $msg);
+        if(@$resp['status'] == 'ERROR') {
+            $msg = 'Request ERROR - "' . $resp['reason'] .'" '. $error_note;
+            
+//            $order_module->setOrderStatus($order_id, self::SC_ORDER_COMPLETED, false, $msg);
+//            $order_module->setPaymentStatus($order_id, self::SC_ORDER_COMPLETED, false, $msg);
             
             echo json_encode([
-                'status' => 'error',
-                'msg' => $msg
-            ]);
-            exit;
-        }
-        
-        // the status of the request is ERROR
-        if(@$json_arr['status'] == 'ERROR') {
-            $msg = 'Request ERROR - "' . $json_arr['reason'] .'" '. $error_note;
-            
-            $order_module->setOrderStatus($order_id, self::SC_ORDER_COMPLETED, false, $msg);
-            $order_module->setPaymentStatus($order_id, self::SC_ORDER_COMPLETED, false, $msg);
-            
-            echo json_encode([
-                'status' => 'error',
-                'msg' => $msg
+                'status'	=> 'error',
+                'msg'		=> $msg
             ]);
             exit;
         }
@@ -359,12 +352,12 @@ class Shopware_Controllers_Backend_SafeChargeOrderEdit extends Shopware_Controll
         // if request success, we will wait for DMN
         $msg = 'Request Refund #' . $clientUniqueId . ', was sent. Please, wait for DMN!';
         
-        $order_module->setOrderStatus($order_id, self::SC_ORDER_COMPLETED, false, $msg);
-        $order_module->setPaymentStatus($order_id, self::SC_ORDER_COMPLETED, false, $msg);
+        $order_module->setOrderStatus($order_id, self::SC_COMPLETE_REFUNDED, false, $msg);
+        $order_module->setPaymentStatus($order_id, self::SC_COMPLETE_REFUNDED, false, $msg);
 
         echo json_encode([
-            'status' => 'success',
-            'msg' => $msg
+            'status'	=> 'success',
+            'msg'		=> $msg
         ]);
         exit;
     }
@@ -378,11 +371,9 @@ class Shopware_Controllers_Backend_SafeChargeOrderEdit extends Shopware_Controll
      */
     private function orderDeleteRefund()
     {
-        $router = Shopware()->Front()->Router();
-        $conn = $this->container->get('dbal_connection');
-        
-        $order_id = intval($this->Request()->getParam('orderId'));
-        $refund_id = intval($this->Request()->getParam('refundId'));
+        $conn		= $this->container->get('dbal_connection');
+        $order_id	= intval($this->Request()->getParam('orderId'));
+        $refund_id	= intval($this->Request()->getParam('refundId'));
         
     //    $resp = $conn->query("DELETE FROM swag_safecharge_refunds WHERE id = {$refund_id} AND order_id = $order_id");
         $resp = $conn->delete('swag_safecharge_refunds', [
@@ -392,15 +383,15 @@ class Shopware_Controllers_Backend_SafeChargeOrderEdit extends Shopware_Controll
         
         if($resp) {
             echo json_encode([
-                'status' => 'success',
-                'removeManualRefund' => 1
+                'status'				=> 'success',
+                'removeManualRefund'	=> 1
             ]);
             exit;
         }
         
         echo json_encode([
-            'status' => 'error',
-            'msg' => @$conn->getErrorMessage() ? $conn->getErrorMessage() : 'Error when try to remove the Refund.'
+            'status'	=> 'error',
+            'msg'		=> @$conn->getErrorMessage() ? $conn->getErrorMessage() : 'Error when try to remove the Refund.'
         ]);
         exit;
     }
@@ -409,7 +400,6 @@ class Shopware_Controllers_Backend_SafeChargeOrderEdit extends Shopware_Controll
      * orderSettleAndVoid orderRefund
      * Settle or Void an order after click on button
      * 
-     * @param int $order_id - secured
      * @param array $payment_custom_fields
      * @param array $settings - plugin settings
      */
@@ -431,7 +421,7 @@ class Shopware_Controllers_Backend_SafeChargeOrderEdit extends Shopware_Controll
             ->fetchAll("SELECT invoice_amount, currency, status FROM s_order WHERE id = " . $order_id);
         
         SC_CLASS::create_log($order_info, '$order_info: ');
-        
+		
         if(!$order_info) {
             echo json_encode([
                 'status' => 'error',
@@ -441,17 +431,8 @@ class Shopware_Controllers_Backend_SafeChargeOrderEdit extends Shopware_Controll
             exit;
         }
         
-        $order_info = $order_info[0];
-        
-        $router = Shopware()->Front()->Router();
-        $time = date('YmdHis', time());
-        
-        $notify_url = $router->assemble(['module'=> 'frontend', 'controller' => 'SafeCharge', 'action' => 'getDMN'])
-            . '?save_logs=' . ($settings['swagSCSaveLogs'] ? 'yes' : 'no');
-            
-        if($settings['swagSCUseHttp']) {
-            $notify_url = str_replace('https:', 'http:', $notify_url);
-        }
+        $order_info	= $order_info[0];
+        $time		= date('YmdHis', time());
         
         $params = array(
             'merchantId'            => $settings['swagSCMerchantId'],
@@ -462,7 +443,7 @@ class Shopware_Controllers_Backend_SafeChargeOrderEdit extends Shopware_Controll
             'currency'              => $order_info['currency'],
             'relatedTransactionId'  => $payment_custom_fields['relatedTransactionId'],
             'authCode'              => $payment_custom_fields['authCode'],
-            'urlDetails'            => array('notificationUrl' => $notify_url),
+            'urlDetails'            => array('notificationUrl' => $this->notify_url),
             'timeStamp'             => $time,
             'test'                  => $settings['swagSCTestMode'] == 1 ? 'yes' : 'no', // need to define the endpoint
         );
@@ -472,13 +453,38 @@ class Shopware_Controllers_Backend_SafeChargeOrderEdit extends Shopware_Controll
             $settings['swagSCMerchantId'] . $settings['swagSCMerchantSiteId'] . $params['clientRequestId']
                 . $params['clientUniqueId'] . $params['amount'] . $params['currency']
                 . $params['relatedTransactionId'] . $params['authCode']
-                . $notify_url . $time . $settings['swagSCSecret']
+                . $this->notify_url . $time . $settings['swagSCSecret']
         );
         
         $params['checksum'] = $checksum;
         
         SC_CLASS::create_log($params, 'The params for Void/Settle: ');
         
-        SC_REST_API::void_and_settle_order($params, $this->request->getParam('scAction'), true);
+		if('settle' == $this->request->getParam('scAction')) {
+			$url = $settings['swagSCTestMode'] == 1 ? SC_TEST_SETTLE_URL : SC_LIVE_SETTLE_URL;
+		}
+		elseif('void' == $this->request->getParam('scAction')) {
+			$url = $settings['swagSCTestMode'] == 1 ? SC_TEST_VOID_URL : SC_LIVE_VOID_URL;
+		}
+		else {
+			echo json_encode([
+                'status' => 'error',
+                'msg' => 'Unknown action: ' . $this->request->getParam('scAction')
+            ]);
+            
+            exit;
+		}
+		
+		$resp = SC_CLASS::call_rest_api($url, $params);
+		
+		if(empty($resp) or empty($resp['transactionStatus'])) {
+            echo json_encode(['status' => 'error']);
+			exit;
+        }
+		
+		
+		
+		echo json_encode(['status' => 'success']);
+		exit;
     }
 }

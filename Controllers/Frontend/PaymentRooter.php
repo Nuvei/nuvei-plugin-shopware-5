@@ -27,7 +27,6 @@ class Shopware_Controllers_Frontend_PaymentRooter extends Shopware_Controllers_F
     const SC_PAYMENT_CANCELLED  = 35;
 
     private $save_logs			= false;
-    private $webMasterId		= 'ShopWare ';
     private $sys_config			= [];
     
 	public function preDispatch()
@@ -61,7 +60,7 @@ class Shopware_Controllers_Frontend_PaymentRooter extends Shopware_Controllers_F
      */
     public function processAction()
     {
-        $router				= $this->Front()->Router();
+        $router = $this->Front()->Router();
 		
         // prepare get parameters for the redirect URL
         $url_parameters = [
@@ -69,7 +68,8 @@ class Shopware_Controllers_Frontend_PaymentRooter extends Shopware_Controllers_F
         //    'userid'    => $user['additional']['user']['id'],
             'currency'    => $this->getCurrencyShortName(),
         ];
-        $get_parameters = '?' . http_build_query($url_parameters);
+        
+		$get_parameters = '?' . http_build_query($url_parameters);
         
 //        echo '<pre>'.print_r($url_parameters['signature'], true).'</pre>';
 //        echo '<pre>'.print_r($this->loadBasketFromSignature($url_parameters['signature']), true).'</pre>';
@@ -187,35 +187,35 @@ class Shopware_Controllers_Frontend_PaymentRooter extends Shopware_Controllers_F
         $connection = $this->container->get('dbal_connection');
         $order_data = [];
 		
-		// get the order by transactionId
-		$tries = 0;
-		
-		do {
-			$tries++;
-			
-			$order_data = current(
-				$connection->fetchAll(
-					'SELECT id, ordernumber, status FROM s_order WHERE transactionID = :trID',
-					['trID' => $params['TransactionID']]
-				)
-			);
-			
-			if(empty($order_data['id'])) {
-				sleep(5);
-			}
-		}
-		while($tries <= 10 and empty($order_data['id']));
-		
-		if(empty($order_data['id'])) {
-			SC_CLASS::create_log('The DMN didn\'t wait for the Order creation');
-			echo 'The DMN didn\'t wait for the Order creation';
-			exit;
-		}
-		
-		SC_CLASS::create_log($order_data, 'DMN: an order found:');
-		
         # Sale and Auth
         if(in_array($params['transactionType'], array('Sale', 'Auth'))) {
+			// get the order by transactionId
+			$tries = 0;
+
+			do {
+				$tries++;
+
+				$order_data = current(
+					$connection->fetchAll(
+						'SELECT id, ordernumber, status FROM s_order WHERE transactionID = :trID',
+						['trID' => $params['TransactionID']]
+					)
+				);
+
+				if(empty($order_data['id'])) {
+					sleep(5);
+				}
+			}
+			while($tries <= 10 and empty($order_data['id']));
+
+			if(empty($order_data['id'])) {
+				SC_CLASS::create_log('The DMN didn\'t wait for the Order creation');
+				echo 'The DMN didn\'t wait for the Order creation';
+				exit;
+			}
+
+			SC_CLASS::create_log($order_data, 'DMN: an order found:');
+			
             SC_CLASS::create_log('DMN: for ' . $params['transactionType']);
             
             try {
@@ -261,8 +261,11 @@ class Shopware_Controllers_Frontend_PaymentRooter extends Shopware_Controllers_F
                 $this->change_order_status($order_data, $req_status, $params);
             }
             catch (Exception $ex) {
-                $this->create_log($ex->getMessage(), 'getDMNAction() Void/Settle Exception: ');
+                SC_CLASS::create_log($ex->getMessage(), 'getDMNAction() Void/Settle Exception: ');
             }
+			
+			echo 'DMN received.';
+            exit;
         }
         
         SC_CLASS::create_log('getDMNAction end.');
@@ -301,8 +304,8 @@ class Shopware_Controllers_Frontend_PaymentRooter extends Shopware_Controllers_F
         
         switch($status) {
             case 'CANCELED':
-                $message = 'Payment status changed to:' . @$params['transactionType']
-                    . '. PPP_TransactionID = ' . @$params['PPP_TransactionID']
+                $message = 'Payment status changed to: <b>' . @$params['transactionType']
+                    . '</b>.<br/>PPP_TransactionID = ' . @$params['PPP_TransactionID']
                     . ", Status = " . $status . ', GW_TransactionID = '
                     . @$params['TransactionID'];
 
@@ -311,8 +314,8 @@ class Shopware_Controllers_Frontend_PaymentRooter extends Shopware_Controllers_F
             
             case 'APPROVED':
                 if(@$params['transactionType'] == 'Void') {
-                    $message = 'Payment status changed to:' . @$params['transactionType']
-						. '. PPP_TransactionID = ' . @$params['PPP_TransactionID']
+                    $message = 'Payment status changed to: <b>Void</b>'
+						. '.<br/>PPP_TransactionID = ' . @$params['PPP_TransactionID']
 						. ", Status = " . $status . ', GW_TransactionID = '
 						. @$params['TransactionID'];
 
@@ -514,8 +517,9 @@ class Shopware_Controllers_Frontend_PaymentRooter extends Shopware_Controllers_F
         if(!empty($dmn_params['transactionType'])) {
             $sc_field_arr['respTransactionType'] = $dmn_params['transactionType'];
         }
-        
-//        SC_CLASS::create_log($sc_field_arr, '$sc_field_arr: ');
+        if(!empty($dmn_params['payment_method'])) {
+            $sc_field_arr['paymentMethod'] = $dmn_params['payment_method'];
+        }
         
         // fill safecharge order field
         $resp = $connection->update(
