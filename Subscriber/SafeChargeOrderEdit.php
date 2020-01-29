@@ -21,14 +21,13 @@ class SafeChargeOrderEdit implements SubscriberInterface
     private $connection;
 
     /**
-     * @param $pluginDirectory
+     * @param string $pluginDirectory
+     * @param Connection $connection
      */
-//    public function __construct(Connection $connection)
-//    public function __construct($pluginDirectory)
     public function __construct($pluginDirectory, Connection $connection)
     {
-        $this->pluginDirectory = $pluginDirectory;
-        $this->connection = $connection;
+        $this->pluginDirectory	= $pluginDirectory;
+        $this->connection		= $connection;
     }
     
     /**
@@ -47,9 +46,9 @@ class SafeChargeOrderEdit implements SubscriberInterface
     {
         /** @var \Shopware_Controllers_Backend_Customer $controller */
         $controller = $args->getSubject();
-        $view = $controller->View();
-        $request = $controller->Request();
-        $order_id = intval($request->getParam('orderId'));
+        $view		= $controller->View();
+        $request	= $controller->Request();
+        $order_id	= intval($request->getParam('orderId'));
         
     //    if($request->getActionName() == 'load' && $order_id) {
     //    if($request->getActionName() == 'loadStores' && $order_id) {
@@ -59,6 +58,7 @@ class SafeChargeOrderEdit implements SubscriberInterface
             $view->addTemplateDir($this->pluginDirectory . '/Resources/views');
             
             $query = $this->connection->createQueryBuilder();
+			
             $query->select(['safecharge_order_field'])
                 ->from('s_order_attributes')
                 ->where('orderID = :orderId')

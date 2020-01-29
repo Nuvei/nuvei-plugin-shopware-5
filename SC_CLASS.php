@@ -166,9 +166,13 @@ class SC_CLASS
         $logs_path = dirname(dirname(dirname(dirname(__FILE__)))) . DIRECTORY_SEPARATOR
 			. 'var' . DIRECTORY_SEPARATOR . 'log';
 		
+		if(!is_dir($logs_path)) {
+			return;
+		}
+		
 		if(
-			is_dir($logs_path)
-			and in_array(@$_REQUEST['sc_create_logs'], ['yes', 1])
+			in_array(@$_REQUEST['sc_create_logs'], ['yes', 1])
+			or in_array(@$_SESSION['sc_create_logs'], ['yes', 1])
 		) {
 			// same for all plugins
 			$d = $data;

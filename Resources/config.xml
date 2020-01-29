@@ -25,12 +25,14 @@
             <name>swagSCHash</name>
             <label lang="en">Hash type</label>
             <value>sha256</value>
-            <store>
+            
+			<store>
                 <option>
                     <value>sha256</value>
                     <label>sha256</label>
                 </option>
-                <option>
+                
+				<option>
                     <value>md5</value>
                     <label>md5</label>
                 </option>
@@ -41,14 +43,16 @@
             <name>swagSCTransactionType</name>
             <label lang="en">Transaction Type</label>
             <value>Auth</value>
-            <store>
+            
+			<store>
                 <option>
-                    <value>Auth</value>
-                    <label>Auth and Settle</label>
+					<value>Sale</value>
+					<label lang="en">Authorize and Capture</label>
                 </option>
-                <option>
-                    <value>Sale</value>
-                    <label>Sale</label>
+                
+				<option>
+					<value>Auth</value>
+					<label lang="en">Authorize</label>
                 </option>
             </store>
         </element>

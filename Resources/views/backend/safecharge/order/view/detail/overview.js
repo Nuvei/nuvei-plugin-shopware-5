@@ -27,6 +27,10 @@ Ext.define('Shopware.apps.Order.view.detail.Overview', {
         console.log(me.record.get('id'))
         
 //        Ext.ComponentQuery.query('#'+btnId)[0].hide();
+
+		if(!confirm('Are you sure, you want to continue?')) {
+			return;
+		}
         
         var reqData = {
             scAction			: action
@@ -65,7 +69,7 @@ Ext.define('Shopware.apps.Order.view.detail.Overview', {
                         document.getElementById(parId).closest('tr').style.display = 'none'
                     }
                     
-                    alert('Succes! Please, close Order Details window, and open it again!');
+                    alert('Succes! Please, close Order Details window, and refresh Orders list!');
                 }
                 else {
                     Ext.ComponentQuery.query('#scPanelLoadingImg')[0].hide();
@@ -261,10 +265,7 @@ Ext.define('Shopware.apps.Order.view.detail.Overview', {
                     // enable Void END
                     
                     // enable Settle
-                    if(
-                        typeof resp.scOrderData.respTransactionType != 'undefined'
-                        && resp.scOrderData.respTransactionType == 'Auth'
-                    ) {
+                    if(typeof resp.scEnableSettle != 'undefined' && resp.scEnableSettle) {
                         var scSettleBtn = Ext.create('Ext.Button', {
                             text: 'Settle'
                             ,html: ''
@@ -384,7 +385,7 @@ Ext.define('Shopware.apps.Order.view.detail.Overview', {
                 }
                 // response not success
                 else {
-                //    alert(resp.msg);
+                    alert(resp.msg);
                     
 //                    Ext.ComponentQuery.query('#scFinalContainer')[0]
 //                        .remove(Ext.ComponentQuery.query('#scPanelLoadingImg')[0]);

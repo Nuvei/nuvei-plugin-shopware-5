@@ -1,8 +1,9 @@
 <?php
 
 /**
- * @author SafeCharge
+ * Frontend Controller
  * 
+ * @author SafeCharge
  * @year 2019
  */
 
@@ -14,17 +15,19 @@ require_once dirname(dirname(dirname(__FILE__))) . DIRECTORY_SEPARATOR . 'SC_CLA
 class Shopware_Controllers_Frontend_PaymentRooter extends Shopware_Controllers_Frontend_Payment
 {
     // constants for order status, see db_name.s_core_states
-    // states
+    // order states
     const SC_ORDER_CANCELLED    = -1;
     const SC_ORDER_IN_PROGRESS  = 1;
     const SC_ORDER_COMPLETED    = 2;
     const SC_ORDER_REJECTED		= 4;
+	
     // payment states
-    const SC_ORDER_PAID         = 12;
-    const SC_ORDER_OPEN         = 17;
-    const SC_PARTIALLY_REFUNDED = 31;
-    const SC_COMPLETE_REFUNDED  = 32;
-    const SC_PAYMENT_CANCELLED  = 35;
+    const SC_ORDER_PARTIALLY_PAID	= 11;
+    const SC_ORDER_PAID				= 12;
+    const SC_ORDER_OPEN				= 17;
+    const SC_PARTIALLY_REFUNDED		= 31;
+    const SC_COMPLETE_REFUNDED		= 32;
+    const SC_PAYMENT_CANCELLED		= 35;
 
     private $save_logs			= false;
     private $sys_config			= [];
@@ -39,18 +42,22 @@ class Shopware_Controllers_Frontend_PaymentRooter extends Shopware_Controllers_F
 	
     /**
      * Function indexAction
-     * Check if user use SC payment method, if not go to default checkout
+	 * 
+	 * Mandatory method for front-end controller.
      */
     public function indexAction()
     {
-		SC_CLASS::create_log($this->getPaymentShortName(), 'PaymentShortName');
+		$params = $this->Request()->getParams();
 		
-        switch ($this->getPaymentShortName()) {
-            case 'safecharge_payment':
-                return $this->forward('process');
-            default:
-                return $this->redirect(['controller' => 'checkout']);
-        }
+		if(!empty($params['transactionType']) and !empty($params['advanceResponseChecksum'])) {
+			return $this->forward('getDMN');
+		}
+		
+		if('safecharge_payment' == $this->getPaymentShortName()) {
+			return $this->forward('process');
+		}
+		
+		return $this->redirect(['controller' => 'checkout']);
     }
     
     /**
@@ -71,18 +78,10 @@ class Shopware_Controllers_Frontend_PaymentRooter extends Shopware_Controllers_F
         
 		$get_parameters = '?' . http_build_query($url_parameters);
         
-//        echo '<pre>'.print_r($url_parameters['signature'], true).'</pre>';
-//        echo '<pre>'.print_r($this->loadBasketFromSignature($url_parameters['signature']), true).'</pre>';
-//        die('die');
         $providerUrl = $router->assemble(['controller' => 'PaymentProvider', 'action' => 'pay']);
         $this->redirect($providerUrl . $get_parameters);
     }
 	
-	public function returnAction()
-	{
-		die('returnAction');
-	}
-    
     /**
      * Function successAction
      * On success when use Cashier customer will come here.
@@ -175,6 +174,13 @@ class Shopware_Controllers_Frontend_PaymentRooter extends Shopware_Controllers_F
 			echo 'DMN Error - missing transactionType data.';
             exit;
 		}
+		
+		if(empty($params['TransactionID']) or ! is_numeric($params['TransactionID'])) {
+			SC_CLASS::create_log($params['TransactionID'], 'DMN Error - not valid TransactionID:');
+			
+			echo 'DMN Error - not valid transactionType!';
+            exit;
+		}
         
         if(!$this->checkAdvRespChecksum()) {
             SC_CLASS::create_log('DMN report: You receive DMN from not trusted source. The process ends here.');
@@ -183,7 +189,7 @@ class Shopware_Controllers_Frontend_PaymentRooter extends Shopware_Controllers_F
             exit;
         }
         
-        $req_status = $this->get_request_status($params);
+        $req_status = $this->get_request_status();
         $connection = $this->container->get('dbal_connection');
         $order_data = [];
 		
@@ -215,12 +221,10 @@ class Shopware_Controllers_Frontend_PaymentRooter extends Shopware_Controllers_F
 			}
 
 			SC_CLASS::create_log($order_data, 'DMN: an order found:');
-			
             SC_CLASS::create_log('DMN: for ' . $params['transactionType']);
             
             try {
                 if($order_data['status'] != self::SC_ORDER_COMPLETED) {
-					$this->update_sc_field($order_data);
                     $this->change_order_status($order_data);
                 }
             }
@@ -236,7 +240,29 @@ class Shopware_Controllers_Frontend_PaymentRooter extends Shopware_Controllers_F
         }
         
         # Refund
-        // TODO
+        if(
+			in_array($params['transactionType'], array('Credit', 'Refund'))
+			and !empty($params['relatedTransactionId'])
+		) {
+			SC_CLASS::create_log($_REQUEST['transactionType'] . ' transaction');
+			
+			try {
+				$order_data = current(
+                    $connection->fetchAll(
+                        'SELECT id, ordernumber, status FROM s_order WHERE transactionID = :trID',
+                        ['trID' => $params['relatedTransactionId']]
+                    )
+                );
+				
+				$this->change_order_status($order_data, $req_status, $params);
+			}
+			catch (Exception $ex) {
+				SC_CLASS::create_log($ex->getMessage(), 'DMN Refund Exception: ');
+			}
+			
+			echo 'DMN received.';
+            exit;
+		}
         
         # Void, Settle
         // here we have to find the order by its Transaction ID -> relatedTransactionId
@@ -254,10 +280,6 @@ class Shopware_Controllers_Frontend_PaymentRooter extends Shopware_Controllers_F
                     )
                 );
                 
-                if($_REQUEST['transactionType'] == 'Settle') {
-                    $this->update_sc_field($order_data, $params);
-                }
-                
                 $this->change_order_status($order_data, $req_status, $params);
             }
             catch (Exception $ex) {
@@ -274,19 +296,15 @@ class Shopware_Controllers_Frontend_PaymentRooter extends Shopware_Controllers_F
         exit;
     }
 	
-//	protected function getProviderUrl()
-//    {
-//        return $this->Front()->Router()->assemble(['controller' => 'PaymentProvider', 'action' => 'pay']);
-//    }
-    
     /**
-     * 
+     * Function change_order_status
+	 * 
      * @param array $order_info
      */
     private function change_order_status($order_info)
     {
         $order_module	= Shopware()->Modules()->Order();
-		$status			= $this->get_request_status($params);
+		$status			= $this->get_request_status();
 		$params			= $this->Request()->getParams();
 		$message		= '';
         $ord_status		= self::SC_ORDER_IN_PROGRESS;
@@ -304,12 +322,16 @@ class Shopware_Controllers_Frontend_PaymentRooter extends Shopware_Controllers_F
         
         switch($status) {
             case 'CANCELED':
-                $message = 'Payment status changed to: <b>' . @$params['transactionType']
+                $message = 'Your request was CANCELED: <b>' . @$params['transactionType']
                     . '</b>.<br/>PPP_TransactionID = ' . @$params['PPP_TransactionID']
                     . ", Status = " . $status . ', GW_TransactionID = '
                     . @$params['TransactionID'];
+				
+				$ord_status = $status;
 
-                $ord_status = self::SC_ORDER_REJECTED;
+				if(in_array(@$params['transactionType'], ['Auth', 'Settle', 'Sale'])) {
+					$ord_status = self::SC_ORDER_REJECTED;
+				}
                 break;
             
             case 'APPROVED':
@@ -319,105 +341,78 @@ class Shopware_Controllers_Frontend_PaymentRooter extends Shopware_Controllers_F
 						. ", Status = " . $status . ', GW_TransactionID = '
 						. @$params['TransactionID'];
 
-					$ord_status = self::SC_ORDER_REJECTED;
+					$ord_status		= self::SC_ORDER_REJECTED;
+					$payment_status	= self::SC_PAYMENT_CANCELLED;
 					break;
                 }
                 
                 // Refund
                 if(in_array(@$params['transactionType'], ['Credit', 'Refund'])) {
-                    // TODO
+                    $message = 'Payment status changed to: <b>Refunded</b>'
+						. '.<br/>PPP_TransactionID = ' . @$params['PPP_TransactionID']
+						. ", Status = " . $status . ', GW_TransactionID = '
+						. @$params['TransactionID'];
+					
+					$payment_status = self::SC_PARTIALLY_REFUNDED;
+					
+					$this->update_sc_field($order_info);
                 }
-                
-                $message = 'The amount has been authorized and captured by ' . SC_GATEWAY_TITLE . '. ';
                 
                 if(@$params['transactionType'] == 'Auth') {
                     $message = 'The amount has been authorized and wait for Settle. ';
+					
+					$this->update_sc_field($order_data);
                 }
                 elseif(in_array(@$params['transactionType'], ['Settle', 'Sale'])) {
-                    // add one more message
-                    $order_module->setOrderStatus(
-                        $order_info['id']
-                        ,self::SC_ORDER_COMPLETED
-                        ,$send_message
-                        ,SC_GATEWAY_TITLE . ' payment is successful.<br/>'
-							. 'PPP_TransactionID: ' . @$params['PPP_TransactionID'] . ',<br/>'
-							. 'TransactionID: ' . @$params['TransactionID']
-                    );
-                    
-                    $order_module->setPaymentStatus(
-                        $order_info['id']
-                        ,self::SC_ORDER_PAID
-                        ,$send_message
-                    );
-                    
-                    $message = 'The amount has been captured by ' . SC_GATEWAY_TITLE . '. ';
-                    $ord_status = self::SC_ORDER_COMPLETED;
-                    $payment_status = self::SC_ORDER_PAID;
+					$message		= 'The amount has been authorized and captured by ' . SC_GATEWAY_TITLE . '.<br/>';
+                    $ord_status		= self::SC_ORDER_COMPLETED;
+                    $payment_status	= self::SC_ORDER_PAID;
+					
+					if(@$params['totalAmount'] != @$params['item_amount_1']) {
+						$payment_status	= self::SC_ORDER_PARTIALLY_PAID;
+					}
+					
+					$this->update_sc_field($order_info);
                 }
                 
-                $message .= 'PPP_TransactionID = ' . @$params['PPP_TransactionID'] . ", Status = ". $status;
+                $message .= 'PPP_TransactionID = ' . @$params['PPP_TransactionID'] . ",<br/>Status = ". $status;
                 
                 if($this->Request()->getParam('transactionType')) {
-                    $message .= ", TransactionType = ". @$params['transactionType'];
+                    $message .= ",<br/>TransactionType = ". @$params['transactionType'];
                 }
                 
-                $message .= ', GW_TransactionID = '. @$params['TransactionID'];
-                
-//                if(@$params['transactionType'] != 'Auth') {
-//                    // add one more message
-//                    $order_module->setOrderStatus(
-//                        $order_info['id']
-//                        ,self::SC_ORDER_COMPLETED
-//                        ,$send_message
-//                        ,SC_GATEWAY_TITLE . ' payment is successful<br/>Unique Id: '
-//                            . @$params['PPP_TransactionID']
-//                    );
-//                    
-//                    $order_module->setPaymentStatus(
-//                        $order_info['id']
-//                        ,self::SC_ORDER_PAID
-//                        ,$send_message
-//                    );
-//                }
-                
+                $message .= ',<br/>GW_TransactionID = '. @$params['TransactionID'];
                 break;
                 
             case 'ERROR':
             case 'DECLINED':
             case 'FAIL':
-                $ord_status     = self::SC_ORDER_CANCELLED;
-                $payment_status = self::SC_PAYMENT_CANCELLED;
+                $ord_status = $status;
                 
-                $reason = ', Reason = ';
+                $message = 'Your ' . @$params['transactionType'] . ' request, has status ' . $status;
+				
                 if(@$params['reason']) {
-                    $reason .= $params['reason'];
+                    $message .= '<br/>Reason: ' . $params['reason'] . '.';
                 }
                 elseif(@$params['Reason']) {
-                    $reason .= $params['Reason'];
+                    $message .= '<br/>Reason: ' . $params['Reason'] . '.';
                 }
-                
-                $message = 'Payment failed. PPP_TransactionID =  '
-                    . @$params['PPP_TransactionID']
-                    . ", Status = " . $status . ", Error code = " 
-                    . @$params['ErrCode']
-                    . ", Message = " . @$params['message'] . $reason;
-                
-                if(@$params['transactionType']) {
-                    $message .= ", TransactionType = " . $params['transactionType'];
+				
+                if(@$params['reasonCode']) {
+                    $message .= '<br/>ReasonCode: ' . $params['reasonCode'] . '.';
                 }
-
-                $message .= ', GW_TransactionID = ' . @$params['TransactionID'];
-                
-                // Void, do not change status
-                if(@$params['transactionType'] == 'Void') {
-                    // TODO
+                elseif(@$params['ReasonCode']) {
+                    $message .= '<br/>ReasonCode: ' . $params['ReasonCode'] . '.';
                 }
-                
-                // Refund
-                if(@$params['transactionType'] == 'Credit') {
-                    // TODO
-                }
-                
+				
+                $message .= '<br/>PPP_TransactionID: ' . @$params['PPP_TransactionID']
+                    . ",<br/>Error code = " . @$params['ErrCode'] . ", Message = " . @$params['message'] . $reason
+					. ',<br/>GW_TransactionID = ' . @$params['TransactionID'];
+				
+				if(in_array(@$params['transactionType'], ['Auth', 'Settle', 'Sale'])) {
+					$ord_status = self::SC_ORDER_CANCELLED;
+				}
+				
                 break;
             
             case 'PENDING':
@@ -455,11 +450,11 @@ class Shopware_Controllers_Frontend_PaymentRooter extends Shopware_Controllers_F
                 break;
         }
         
-//        SC_CLASS::create_log(
-//            $order_info['id'] . '; ' . $ord_status . '; ' . $payment_status . '; ' . $message
-//            ,'$order_id, $ord_status, $payment_status, $message: '
-//        );
-        
+        SC_CLASS::create_log(
+            $order_info['id'] . '; ' . $ord_status . '; ' . $payment_status . '; ' . $message
+            ,'$order_id, $ord_status, $payment_status, $message: '
+        );
+		
         $order_module->setOrderStatus($order_info['id'], $ord_status, $send_message, $message);
         $order_module->setPaymentStatus($order_info['id'], $payment_status, $send_message);
     }
@@ -498,9 +493,6 @@ class Shopware_Controllers_Frontend_PaymentRooter extends Shopware_Controllers_F
             $oder_id    = $data['id'];
         }
         
-//        SC_CLASS::create_log($sc_field, 'sc_field in update_sc_field(): ');
-//        SC_CLASS::create_log($oder_id, '$oder_id in update_sc_field(): ');
-        
         // get SC field
         $sc_field_arr = [];
         if(!empty($sc_field)) {
@@ -512,7 +504,8 @@ class Shopware_Controllers_Frontend_PaymentRooter extends Shopware_Controllers_F
             $sc_field_arr['authCode'] = $dmn_params['AuthCode'];
         }
         if(!empty($dmn_params['TransactionID'])) {
-            $sc_field_arr['relatedTransactionId'] = $dmn_params['TransactionID'];
+//            $sc_field_arr['relatedTransactionId'] = $dmn_params['TransactionID'];
+            $sc_field_arr['relatedTransactionId'] = $dmn_params['relatedTransactionId'];
         }
         if(!empty($dmn_params['transactionType'])) {
             $sc_field_arr['respTransactionType'] = $dmn_params['transactionType'];
@@ -527,22 +520,25 @@ class Shopware_Controllers_Frontend_PaymentRooter extends Shopware_Controllers_F
             ['safecharge_order_field' => json_encode($sc_field_arr)],
             ['orderID' => $oder_id]
         );
-        
-        if(!$resp) {
-            SC_CLASS::create_log($resp, 'update sc field fail: ');
+		
+		if(!$resp) {
+            SC_CLASS::create_log('Error when try to update SC Fields of the Order.');
         }
+		
+		// update Order transactionID field with the last one
+		if(in_array($dmn_params['transactionType'], ['Settle', 'Void'])) {
+			$resp = $connection->update(
+				's_order',
+				['transactionID' => $dmn_params['TransactionID']],
+				['id' => $oder_id]
+			);
+        
+			if(!$resp) {
+				SC_CLASS::create_log('Error when try to set new Transaction ID of the Order.');
+			}
+		}
     }
     
-    private function add_order_msg($msg)
-    {
-        
-    }
-    
-    private function add_order_refund($msg)
-    {
-        
-    }
-
     /**
      * Function getURLs
      * Get a URL we need
@@ -555,17 +551,13 @@ class Shopware_Controllers_Frontend_PaymentRooter extends Shopware_Controllers_F
         
 		if ($settings['swagSCTestMode']) {
             $urls = [
-            //    'session_token'     => SC_TEST_SESSION_TOKEN_URL,
                 'merch_paym_meth'   => SC_TEST_REST_PAYMENT_METHODS_URL,
-            //    'form_cashier'      => SC_TEST_CASHIER_URL,
                 'form_rest'         => SC_TEST_PAYMENT_URL,
             ];
 		}
         else {
             $urls = [
-            //    'session_token'     => SC_LIVE_SESSION_TOKEN_URL,
                 'merch_paym_meth'   => SC_LIVE_REST_PAYMENT_METHODS_URL,
-            //    'form_cashier'      => SC_LIVE_CASHIER_URL,
                 'form_rest'         => SC_LIVE_PAYMENT_URL,
             ];
 		}
@@ -577,10 +569,11 @@ class Shopware_Controllers_Frontend_PaymentRooter extends Shopware_Controllers_F
      */
     private function checkAdvRespChecksum()
     {
-		$settings					= $this->getPluginSettings();
-		$params						= $this->Request()->getParams();
-		$status						= $this->get_request_status();
-		$advanceResponseChecksum	= $params['advanceResponseChecksum'];
+		$settings			= $this->container->get('shopware.plugin.cached_config_reader')
+            ->getByPluginName('SwagSafeCharge', Shopware()->Shop());
+		$params				= $this->Request()->getParams();
+		$status				= $this->get_request_status();
+		$advRespChecksum	= $params['advanceResponseChecksum'];
         
         if(!$settings) {
             SC_CLASS::create_log($settings, 'checkAdvRespChecksum() can not get plugin settings!: ');
@@ -588,16 +581,16 @@ class Shopware_Controllers_Frontend_PaymentRooter extends Shopware_Controllers_F
         }
         
         $str = hash(
-            $settings['hash'],
-            $settings['secret'] . $params['totalAmount'] . $params['currency']
+            $settings['swagSCHash'],
+            $settings['swagSCSecret'] . $params['totalAmount'] . $params['currency']
                 . $params['responseTimeStamp'] . $params['PPP_TransactionID']
                 . $status . $params['productId']
         );
         
-        if ($str == $advanceResponseChecksum) {
+        if ($str == $advRespChecksum) {
             return true;
         }
-        
+		
         return false;
     }
     
@@ -606,43 +599,18 @@ class Shopware_Controllers_Frontend_PaymentRooter extends Shopware_Controllers_F
      * We need this stupid function because the name response request variable
      * can be 'Status' or 'status'
      * 
-     * @param array $params - response parameters
      * @return string
      */
-    private function get_request_status($params = array())
+    private function get_request_status()
     {
-        if(empty($params)) {
-            if($this->Request()->getParam('Status')) {
-                return $this->Request()->getParam('Status');
-            }
+		if($status = $this->Request()->getParam('Status')) {
+			return $status;
+		}
 
-            if($this->Request()->getParam('status')) {
-                return $this->Request()->getParam('status');
-            }
-        }
-        else {
-            if(isset($params['Status'])) {
-                return $params['Status'];
-            }
-
-            if(isset($params['status'])) {
-                return $params['status'];
-            }
-        }
+		if($status = $this->Request()->getParam('status')) {
+			return $status;
+		}
         
         return '';
-    }
-    
-    private function getPluginSettings()
-    {
-        $settigns = $this->container->get('shopware.plugin.cached_config_reader')
-            ->getByPluginName('SwagSafeCharge', Shopware()->Shop());
-        
-        return [
-            'hash'		=> $settigns['swagSCHash'],
-            'secret'	=> $settigns['swagSCSecret'],
-            'test_mode' => $settigns['swagSCTestMode'],
-            'save_logs'	=> $settigns['swagSCSaveLogs'],
-        ];
     }
 }
