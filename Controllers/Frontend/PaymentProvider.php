@@ -147,7 +147,8 @@ class Shopware_Controllers_Frontend_PaymentProvider extends Enlight_Controller_A
 				'deviceDetails'     => SC_CLASS::get_device_details(),
 				'userTokenId'       => $user['additional']['user']['email'],
 				'billingAddress'    => array(
-					'country' => $user['additional']['country']['countryiso'],
+					'country'	=> $user['additional']['country']['countryiso'],
+					'email'		=> $user['additional']['user']['email'],
 				),
 				'webMasterId'       => $this->webMasterId,
 				'paymentOption'		=> ['card' => ['threeD' => ['isDynamic3D' => 1]]],
@@ -205,7 +206,7 @@ class Shopware_Controllers_Frontend_PaymentProvider extends Enlight_Controller_A
 					. $get_parameters
 				);
 			}
-
+			
 			// set template variables
 			$this->View()->assign([
 				'cancelUrl'			=> $router->assemble([
@@ -220,6 +221,8 @@ class Shopware_Controllers_Frontend_PaymentProvider extends Enlight_Controller_A
 				'langCode'			=> $apms_params['languageCode'],
 				'currency'			=> $oo_params['currency'],
 				'amount'			=> $oo_params['amount'],
+				'sourceApplication'	=> SC_SOURCE_APPLICATION,
+				'pluginPath'		=> SC_PLUGIN_PATH,
 			]);
 		}
 		// second call - collect the data and continue with an APM payment
@@ -258,6 +261,7 @@ class Shopware_Controllers_Frontend_PaymentProvider extends Enlight_Controller_A
                 ),
                 'timeStamp'         => $time,
                 'webMasterId'       => $this->webMasterId,
+				'sourceApplication'	=> SC_SOURCE_APPLICATION,
                 'deviceDetails'     => SC_CLASS::get_device_details(),
                 'sessionToken'      => $this->Request()->getParam('session_token'),
             );

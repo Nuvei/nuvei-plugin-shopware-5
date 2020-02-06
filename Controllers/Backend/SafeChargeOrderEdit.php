@@ -315,6 +315,7 @@ class Shopware_Controllers_Backend_SafeChargeOrderEdit extends Shopware_Controll
 			'comment'               => '',
 			'url'					=> $this->notify_url,
 			'timeStamp'             => $time,
+			'sourceApplication'     => SC_SOURCE_APPLICATION,
 		);
 		
 		$checksum_str = implode('', $ref_parameters);
@@ -474,6 +475,7 @@ class Shopware_Controllers_Backend_SafeChargeOrderEdit extends Shopware_Controll
             'authCode'              => $payment_custom_fields['authCode'],
             'urlDetails'            => array('notificationUrl' => $this->notify_url),
             'timeStamp'             => $time,
+			'sourceApplication'     => SC_SOURCE_APPLICATION,
             'test'                  => $settings['swagSCTestMode'] == 1 ? 'yes' : 'no', // need to define the endpoint
         );
         
@@ -510,8 +512,6 @@ class Shopware_Controllers_Backend_SafeChargeOrderEdit extends Shopware_Controll
             echo json_encode(['status' => 'error']);
 			exit;
         }
-		
-		
 		
 		echo json_encode(['status' => 'success']);
 		exit;

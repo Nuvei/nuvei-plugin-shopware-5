@@ -115,8 +115,19 @@
 										<div class="filter-panel filter--multi-selection" data-filter-type="value-list">
 											<div class="filter-panel--flyout">
 												<label class="filter-panel--title" data-pm="{$apm.paymentMethod}"  onclick="scShowCheckMark($(this))">
-													<i class="icon--check" style="position: relative; bottom: 10px; color: green; display: none;"></i>
-													<img src="{$apm.logoURL}" alt="{$apm.paymentMethodDisplayName[0].message}" style="display: inline-block;" />
+													<span style="float: left; width: 20px; text-align: left;">
+														<i class="icon--check" style="display: none; color: green;"></i>
+													</span>
+													
+													{if $apm.paymentMethod eq 'cc_card'}
+														<img src="/custom/plugins/SwagSafeCharge/Resources/views/frontend/_public/img/visa_mc_maestro.svg" 
+															 alt="{$apm.paymentMethodDisplayName[0].message}" 
+															 style="display: inline-block; height: 36px;" />
+													{else}
+														<img src="{$apm.logoURL}" 
+															 alt="{$apm.paymentMethodDisplayName[0].message}" 
+															 style="display: inline-block;" />
+													{/if}
 												</label>
 
 												{if $apm.fields}
@@ -293,9 +304,10 @@
                             $('#sc_payment_form').submit();
 						}
 						console.log('apm');
-						scData.merchantSiteId   = '{$merchantSiteId}';
-						scData.merchantId       = '{$merchantId}';
-						scData.sessionToken     = '{$session_token}';
+						scData.merchantSiteId		= '{$merchantSiteId}';
+						scData.merchantId			= '{$merchantId}';
+						scData.sessionToken			= '{$session_token}';
+						scData.sourceApplication	= '{$session_token}';
 
 						{if $testMode eq 'yes'}
 							scData.env = 'test';
