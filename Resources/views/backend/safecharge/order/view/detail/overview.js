@@ -167,12 +167,13 @@ Ext.define('Shopware.apps.Order.view.detail.Overview', {
 
                 if (resp.status == 'success') {
                     if(
-                        typeof resp.scOrderData.relatedTransactionId == 'undefined'
-                        || resp.scOrderData.relatedTransactionId == ''
-                        || typeof resp.scOrderData.respTransactionType == 'undefined'
+//                        typeof resp.scOrderData.relatedTransactionId == 'undefined'
+//                        || resp.scOrderData.relatedTransactionId == '' || 
+                        typeof resp.scOrderData.respTransactionType == 'undefined'
                         || resp.scOrderData.respTransactionType == ''
                     ) {
-                        alert('The Order miss TransactionID or Transaction Type.');
+//                        alert('The Order miss TransactionID or Transaction Type.');
+                        alert('The Order miss Transaction Type.');
                     
                     //    Ext.ComponentQuery.query('#scFinalContainer')[0]
                     //        .remove(Ext.ComponentQuery.query('#scPanelLoadingImg')[0]);

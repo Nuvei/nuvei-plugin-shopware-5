@@ -64,7 +64,6 @@ class Shopware_Controllers_Backend_SafeChargeOrderEdit extends Shopware_Controll
 		$sc_enable_refund	= false;
 		$sc_enable_settle	= false;
 		
-		// enable Refund
 		if(
 			in_array(@$sc_order_field_arr['paymentMethod'], ['cc_card', 'dc_card', 'apmgw_expresscheckout'])
 			and in_array(@$sc_order_field_arr['respTransactionType'], ['Settle', 'Sale'])
@@ -75,24 +74,19 @@ class Shopware_Controllers_Backend_SafeChargeOrderEdit extends Shopware_Controll
 		
 		// enable Void
         if(
-			(
-				self::SC_ORDER_COMPLETED == $order_status
-				and in_array(@$sc_order_field_arr['respTransactionType'], ['Settle', 'Sale'])
-			)
-			or (
-				0 == $order_status // Open
-				and 'Auth' == @$sc_order_field_arr['respTransactionType']
-			)
+			self::SC_ORDER_COMPLETED == $order_status
+			and in_array(@$sc_order_field_arr['respTransactionType'], ['Settle', 'Sale'])
 		) {
             $sc_enable_void = true;
         }
 		
-		// enable Settle
+		// enable Settle and Void
 		if(
 			'Auth' == @$sc_order_field_arr['respTransactionType']
-			and 0 == $order_status // Open
+			and self::SC_ORDER_IN_PROGRESS == $order_status
 		) {
-			$sc_enable_settle = true;
+			$sc_enable_settle	= true;
+			$sc_enable_void		= true;
 		}
         
         echo json_encode([
@@ -101,7 +95,6 @@ class Shopware_Controllers_Backend_SafeChargeOrderEdit extends Shopware_Controll
             'scEnableVoid'		=> $sc_enable_void,
             'scEnableRefund'	=> $sc_enable_refund,
             'scEnableSettle'	=> $sc_enable_settle,
-//			'ordStatus'			=> $order_status,
         ]);
         
         exit;
@@ -448,7 +441,7 @@ class Shopware_Controllers_Backend_SafeChargeOrderEdit extends Shopware_Controll
         
         $order_info = $this
             ->container->get('db')
-            ->fetchAll("SELECT invoice_amount, currency, status FROM s_order WHERE id = " . $order_id);
+            ->fetchAll("SELECT invoice_amount, currency, status, transactionID FROM s_order WHERE id = " . $order_id);
         
         SC_CLASS::create_log($order_info, '$order_info: ');
 		
@@ -460,6 +453,9 @@ class Shopware_Controllers_Backend_SafeChargeOrderEdit extends Shopware_Controll
             
             exit;
         }
+		
+		$related_tr_id = 'Auth' == $payment_custom_fields['respTransactionType']
+			? $order_info['transactionID'] : $payment_custom_fields['relatedTransactionId'];
         
         $order_info	= $order_info[0];
         $time		= date('YmdHis', time());
@@ -467,11 +463,11 @@ class Shopware_Controllers_Backend_SafeChargeOrderEdit extends Shopware_Controll
         $params = array(
             'merchantId'            => $settings['swagSCMerchantId'],
             'merchantSiteId'        => $settings['swagSCMerchantSiteId'],
-            'clientRequestId'       => $time . '_' . $payment_custom_fields['relatedTransactionId'],
+            'clientRequestId'       => $time . '_' . $related_tr_id,
             'clientUniqueId'        => uniqid(),
             'amount'                => number_format($order_info['invoice_amount'], 2, '.', ''),
             'currency'              => $order_info['currency'],
-            'relatedTransactionId'  => $payment_custom_fields['relatedTransactionId'],
+            'relatedTransactionId'  => $related_tr_id,
             'authCode'              => $payment_custom_fields['authCode'],
             'urlDetails'            => array('notificationUrl' => $this->notify_url),
             'timeStamp'             => $time,
@@ -509,7 +505,12 @@ class Shopware_Controllers_Backend_SafeChargeOrderEdit extends Shopware_Controll
 		$resp = SC_CLASS::call_rest_api($url, $params);
 		
 		if(empty($resp) or empty($resp['transactionStatus'])) {
-            echo json_encode(['status' => 'error']);
+			
+			
+            echo json_encode([
+				'status'	=> 'error',
+				'msg'		=> 'REST API call is empty or response transactionStatus is empty'
+			]);
 			exit;
         }
 		

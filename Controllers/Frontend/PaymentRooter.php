@@ -361,7 +361,7 @@ class Shopware_Controllers_Frontend_PaymentRooter extends Shopware_Controllers_F
                 if(@$params['transactionType'] == 'Auth') {
                     $message = 'The amount has been authorized and wait for Settle. ';
 					
-					$this->update_sc_field($order_data);
+					$this->update_sc_field($order_info);
                 }
                 elseif(in_array(@$params['transactionType'], ['Settle', 'Sale'])) {
 					$message		= 'The amount has been authorized and captured by ' . SC_GATEWAY_TITLE . '.<br/>';
@@ -517,20 +517,20 @@ class Shopware_Controllers_Frontend_PaymentRooter extends Shopware_Controllers_F
         // fill safecharge order field
         $resp = $connection->update(
             's_order_attributes',
-            ['safecharge_order_field' => json_encode($sc_field_arr)],
-            ['orderID' => $oder_id]
+            ['safecharge_order_field'	=> json_encode($sc_field_arr)],
+            ['orderID'					=> $oder_id]
         );
 		
 		if(!$resp) {
-            SC_CLASS::create_log('Error when try to update SC Fields of the Order.');
+            SC_CLASS::create_log('Error when try to update SC Fields of the Order. Try to insert.');
         }
 		
 		// update Order transactionID field with the last one
 		if(in_array($dmn_params['transactionType'], ['Settle', 'Void'])) {
 			$resp = $connection->update(
 				's_order',
-				['transactionID' => $dmn_params['TransactionID']],
-				['id' => $oder_id]
+				['transactionID'	=> $dmn_params['TransactionID']],
+				['id'				=> $oder_id]
 			);
         
 			if(!$resp) {
