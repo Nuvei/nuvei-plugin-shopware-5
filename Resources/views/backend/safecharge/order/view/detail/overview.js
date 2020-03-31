@@ -18,13 +18,14 @@ Ext.define('Shopware.apps.Order.view.detail.Overview', {
     }
     
     ,scOrderActions: function(action, btnId, refId, ordId) {
-        var me = this;
-        
+		console.log('scOrderActions')
 		console.log(action)
         console.log(btnId)
         console.log(refId)
         console.log(ordId)
         console.log(me.record.get('id'))
+		
+		var me = this;
         
 //        Ext.ComponentQuery.query('#'+btnId)[0].hide();
 
@@ -61,13 +62,21 @@ Ext.define('Shopware.apps.Order.view.detail.Overview', {
                 
 				if (resp.status == 'success' || resp.status == 1) {
 //                    Ext.ComponentQuery.query('#scPanelLoadingImg')[0].hide();
-					Ext.ComponentQuery.query('#'+btnId)[0].hide();
-                    
-                    if(action == 'deleteRefund') {
-                        // hide the refund row
-                        var parId = Ext.ComponentQuery.query('#'+btnId)[0].up()['id'];
-                        document.getElementById(parId).closest('tr').style.display = 'none'
-                    }
+//					Ext.ComponentQuery.query('#'+btnId)[0].hide();
+					
+					// hide all SC areas with action buttons
+					if(typeof Ext.ComponentQuery.query('#SCRefundArea')[0] != 'undefined') {
+						Ext.ComponentQuery.query('#SCRefundArea')[0].hide();
+					}
+					if(typeof Ext.ComponentQuery.query('#scFinalContainer')[0] != 'undefined') {
+						Ext.ComponentQuery.query('#scFinalContainer')[0].hide();
+					}
+					
+//                    if(action == 'deleteRefund') {
+//                        // hide the refund row
+//                        var parId = Ext.ComponentQuery.query('#'+btnId)[0].up()['id'];
+//                        document.getElementById(parId).closest('tr').style.display = 'none'
+//                    }
                     
                     alert('Succes! Please, close Order Details window, and refresh Orders list!');
                 }
@@ -236,6 +245,7 @@ Ext.define('Shopware.apps.Order.view.detail.Overview', {
                             title: 'SafeCharge Refund',
                             layout: 'hbox',
                             labelWidth: 75,
+							itemId: 'SCRefundArea',
                             items: [scRefundFieldTitle, scManualRefundBtn, scRefundBtn]
                         });
                         // refund area END
@@ -325,7 +335,7 @@ Ext.define('Shopware.apps.Order.view.detail.Overview', {
                                     ,border: 0
                                 }
                                 ,{
-                                    html: resp.scOrderData.refunds[rec].transactionId
+                                    html: resp.scOrderData.refunds[rec].transaction_id
                                     ,border: 0
                                 }
                                 ,{

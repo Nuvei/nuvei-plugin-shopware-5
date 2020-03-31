@@ -189,7 +189,6 @@ class Shopware_Controllers_Frontend_PaymentRooter extends Shopware_Controllers_F
             exit;
         }
         
-        $req_status = $this->get_request_status();
         $connection = $this->container->get('dbal_connection');
         $order_data = [];
 		
@@ -244,8 +243,6 @@ class Shopware_Controllers_Frontend_PaymentRooter extends Shopware_Controllers_F
 			in_array($params['transactionType'], array('Credit', 'Refund'))
 			and !empty($params['relatedTransactionId'])
 		) {
-			SC_CLASS::create_log($_REQUEST['transactionType'] . ' transaction');
-			
 			try {
 				$order_data = current(
                     $connection->fetchAll(
@@ -254,7 +251,7 @@ class Shopware_Controllers_Frontend_PaymentRooter extends Shopware_Controllers_F
                     )
                 );
 				
-				$this->change_order_status($order_data, $req_status, $params);
+				$this->change_order_status($order_data);
 			}
 			catch (Exception $ex) {
 				SC_CLASS::create_log($ex->getMessage(), 'DMN Refund Exception: ');
@@ -280,7 +277,7 @@ class Shopware_Controllers_Frontend_PaymentRooter extends Shopware_Controllers_F
                     )
                 );
                 
-                $this->change_order_status($order_data, $req_status, $params);
+                $this->change_order_status($order_data);
             }
             catch (Exception $ex) {
                 SC_CLASS::create_log($ex->getMessage(), 'getDMNAction() Void/Settle Exception: ');
@@ -307,8 +304,10 @@ class Shopware_Controllers_Frontend_PaymentRooter extends Shopware_Controllers_F
 		$status			= $this->get_request_status();
 		$params			= $this->Request()->getParams();
 		$message		= '';
-        $ord_status		= self::SC_ORDER_IN_PROGRESS;
-        $payment_status = self::SC_ORDER_OPEN;
+//        $ord_status		= self::SC_ORDER_IN_PROGRESS;
+        $ord_status		= $order_info['status'];
+//        $payment_status = self::SC_ORDER_OPEN;
+        $payment_status = '';
 		$send_message	= true;
         
         SC_CLASS::create_log(
@@ -319,27 +318,48 @@ class Shopware_Controllers_Frontend_PaymentRooter extends Shopware_Controllers_F
         if(@$this->sys_config['mail']['disabled'] == 1) {
             $send_message = false;
         }
+		
+		// remove waitigForDMN flag
+		$conn = $this->container->get('dbal_connection');
+		$safecharge_order_field = $conn
+			->fetchColumn("SELECT safecharge_order_field FROM s_order_attributes WHERE orderID = " . $order_info['id']);
+		
+		if($safecharge_order_field) {
+			$sc_order_field_arr = json_decode($safecharge_order_field, true);
+			
+			if(isset($sc_order_field_arr['waitigForDMN']) and intval($sc_order_field_arr['waitigForDMN']) == 1) {
+				$sc_order_field_arr['waitigForDMN'] = 0;
+				
+				$res = $conn->update(
+					's_order_attributes',
+					['safecharge_order_field'	=> json_encode($sc_order_field_arr)],
+					['orderID'					=> $order_info['id']]
+				);
+			}
+		}
+		// remove waitigForDMN flag END
         
         switch($status) {
             case 'CANCELED':
-                $message = 'Your request was CANCELED: <b>' . @$params['transactionType']
-                    . '</b>.<br/>PPP_TransactionID = ' . @$params['PPP_TransactionID']
-                    . ", Status = " . $status . ', GW_TransactionID = '
-                    . @$params['TransactionID'];
+                $message = 'Your request was CANCELED: <b>' . @$params['transactionType'] . '</b>.'
+					. '<br/>PPP_TransactionID = ' . @$params['PPP_TransactionID']
+                    . ",<br/>Status = " . $status 
+					. ',<br/>TransactionID = ' . @$params['TransactionID'];
 				
 				$ord_status = $status;
 
 				if(in_array(@$params['transactionType'], ['Auth', 'Settle', 'Sale'])) {
-					$ord_status = self::SC_ORDER_REJECTED;
+					$ord_status		= self::SC_ORDER_REJECTED;
+					$payment_status	= self::SC_PAYMENT_CANCELLED;
 				}
                 break;
             
             case 'APPROVED':
                 if(@$params['transactionType'] == 'Void') {
-                    $message = 'Payment status changed to: <b>Void</b>'
+                    $message = 'Payment status changed to: <b>Void/Canceld</b>'
 						. '.<br/>PPP_TransactionID = ' . @$params['PPP_TransactionID']
-						. ", Status = " . $status . ', GW_TransactionID = '
-						. @$params['TransactionID'];
+						. ",<br/>Status = " . $status
+						. ',<br/>TransactionID = ' . @$params['TransactionID'];
 
 					$ord_status		= self::SC_ORDER_REJECTED;
 					$payment_status	= self::SC_PAYMENT_CANCELLED;
@@ -348,24 +368,27 @@ class Shopware_Controllers_Frontend_PaymentRooter extends Shopware_Controllers_F
                 
                 // Refund
                 if(in_array(@$params['transactionType'], ['Credit', 'Refund'])) {
-                    $message = 'Payment status changed to: <b>Refunded</b>'
-						. '.<br/>PPP_TransactionID = ' . @$params['PPP_TransactionID']
-						. ", Status = " . $status . ', GW_TransactionID = '
-						. @$params['TransactionID'];
+                    $message		= 'Payment status changed to: <b>Refunded</b>.<br/>';
 					
-					$payment_status = self::SC_PARTIALLY_REFUNDED;
+					$ord_status		= self::SC_ORDER_COMPLETED;
+					$payment_status	= self::SC_PARTIALLY_REFUNDED;
 					
-					$this->update_sc_field($order_info);
+//					$this->update_sc_field($order_info);
+					$this->save_refund($order_info, $params);
                 }
                 
                 if(@$params['transactionType'] == 'Auth') {
-                    $message = 'The amount has been authorized and wait for Settle. ';
+                    $message = 'The amount has been authorized and wait for Settle.<br/>';
+					
+					$ord_status		= self::SC_ORDER_IN_PROGRESS;
+					$payment_status = self::SC_ORDER_OPEN;
 					
 					$this->update_sc_field($order_info);
                 }
                 elseif(in_array(@$params['transactionType'], ['Settle', 'Sale'])) {
 					$message		= 'The amount has been authorized and captured by ' . SC_GATEWAY_TITLE . '.<br/>';
-                    $ord_status		= self::SC_ORDER_COMPLETED;
+                    
+					$ord_status		= self::SC_ORDER_COMPLETED;
                     $payment_status	= self::SC_ORDER_PAID;
 					
 					if(@$params['totalAmount'] != @$params['item_amount_1']) {
@@ -375,13 +398,14 @@ class Shopware_Controllers_Frontend_PaymentRooter extends Shopware_Controllers_F
 					$this->update_sc_field($order_info);
                 }
                 
-                $message .= 'PPP_TransactionID = ' . @$params['PPP_TransactionID'] . ",<br/>Status = ". $status;
+                $message .= 'PPP_TransactionID = ' . @$params['PPP_TransactionID']
+					. ",<br/>Status = ". $status;
                 
                 if($this->Request()->getParam('transactionType')) {
                     $message .= ",<br/>TransactionType = ". @$params['transactionType'];
                 }
                 
-                $message .= ',<br/>GW_TransactionID = '. @$params['TransactionID'];
+                $message .= ',<br/>TransactionID = '. @$params['TransactionID'];
                 break;
                 
             case 'ERROR':
@@ -407,7 +431,9 @@ class Shopware_Controllers_Frontend_PaymentRooter extends Shopware_Controllers_F
 				
                 $message .= '<br/>PPP_TransactionID: ' . @$params['PPP_TransactionID']
                     . ",<br/>Error code = " . @$params['ErrCode'] . ", Message = " . @$params['message'] . $reason
-					. ',<br/>GW_TransactionID = ' . @$params['TransactionID'];
+					. ',<br/>TransactionID = ' . @$params['TransactionID'];
+				
+				$ord_status	= $order_info['status'];
 				
 				if(in_array(@$params['transactionType'], ['Auth', 'Settle', 'Sale'])) {
 					$ord_status = self::SC_ORDER_CANCELLED;
@@ -420,9 +446,11 @@ class Shopware_Controllers_Frontend_PaymentRooter extends Shopware_Controllers_F
                     $order_info['status'] == self::SC_ORDER_COMPLETED
                     || $order_info['status'] == self::SC_ORDER_IN_PROGRESS
                 ) {
-                    $ord_status = $order_info['status'];
                     break;
                 }
+				
+				$ord_status		= self::SC_ORDER_IN_PROGRESS;
+				$payment_status = self::SC_ORDER_OPEN;
                 
                 $message = 'Payment is still pending, PPP_TransactionID '
                     . @$params['PPP_TransactionID'] . ", Status = " . $status;
@@ -431,8 +459,9 @@ class Shopware_Controllers_Frontend_PaymentRooter extends Shopware_Controllers_F
                     $message .= ", TransactionType = " . $params['transactionType'];
                 }
 
-                $message .= ', GW_TransactionID = ' . @$params['TransactionID'];
+                $message .= ', TransactionID = ' . @$params['TransactionID'];
                 
+				// add one mmore message
                 $order_module->setOrderStatus(
                     $order_info['id']
                     ,$ord_status
@@ -441,11 +470,11 @@ class Shopware_Controllers_Frontend_PaymentRooter extends Shopware_Controllers_F
                         . @$params['PPP_TransactionID']
                 );
                 
-                $order_module->setPaymentStatus(
-                    $order_info['id']
-                    ,$payment_status
-                    ,$send_message
-                );
+//                $order_module->setPaymentStatus(
+//                    $order_info['id']
+//                    ,$payment_status
+//                    ,$send_message
+//                );
                 
                 break;
         }
@@ -456,7 +485,10 @@ class Shopware_Controllers_Frontend_PaymentRooter extends Shopware_Controllers_F
         );
 		
         $order_module->setOrderStatus($order_info['id'], $ord_status, $send_message, $message);
-        $order_module->setPaymentStatus($order_info['id'], $payment_status, $send_message);
+		
+		if(!empty($payment_status)) {
+			$order_module->setPaymentStatus($order_info['id'], $payment_status, $send_message);
+		}
     }
     
     /**
@@ -522,7 +554,10 @@ class Shopware_Controllers_Frontend_PaymentRooter extends Shopware_Controllers_F
         );
 		
 		if(!$resp) {
-            SC_CLASS::create_log('Error when try to update SC Fields of the Order. Try to insert.');
+            SC_CLASS::create_log(
+				@$connection->getErrorMessage(),
+				'Error when try to update SC Fields of the Order. Try to insert.'
+			);
         }
 		
 		// update Order transactionID field with the last one
@@ -538,6 +573,36 @@ class Shopware_Controllers_Frontend_PaymentRooter extends Shopware_Controllers_F
 			}
 		}
     }
+	
+	private function save_refund($order_data, $params)
+	{
+		$conn	= $this->container->get('dbal_connection');
+		$amount	= $params['totalAmount'];
+		
+		if(!empty($params['customData'])) {
+			$custom_data = json_decode($params['customData'], true);
+			
+			if(is_array($custom_data) and !empty($custom_data['refund_amount'])) {
+				$amount	= $custom_data['refund_amount'];
+			}
+		}
+		
+		try {
+			$conn->insert(
+				'swag_safecharge_refunds',
+				[
+					'order_id'          => $order_data['id'],
+					'client_unique_id'  => @$params['clientUniqueId'],
+					'amount'            => $amount,
+					'transaction_id'    => @$params['TransactionID'],
+					'auth_code'			=> @$params['AuthCode'],
+				]
+			);
+		}
+		catch (Exception $ex) {
+			SC_CLASS::create_log($ex->getMessage(), 'Save Refund exception:');
+		}
+	}
     
     /**
      * Function getURLs
