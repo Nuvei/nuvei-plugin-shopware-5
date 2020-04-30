@@ -145,29 +145,29 @@ class SC_CLASS
 		
 		// validate parameters
 		foreach ($params as $key1 => $val1) {
-            if (!is_array($val1) && !empty($val1) && array_key_exists($key1, $this->params_validation)) {
+            if (!is_array($val1) && !empty($val1) && array_key_exists($key1, self::$params_validation)) {
                 $new_val = $val1;
                 
-                if (mb_strlen($val1) > $this->params_validation[$key1]['length']) {
-                    $new_val = mb_substr($val1, 0, $this->params_validation[$key1]['length']);
+                if (mb_strlen($val1) > self::$params_validation[$key1]['length']) {
+                    $new_val = mb_substr($val1, 0, self::$params_validation[$key1]['length']);
                     
                     self::create_log($key1, 'Limit');
                 }
                 
-                $params[$key1] = filter_var($new_val, $this->params_validation[$key1]['flag']);
+                $params[$key1] = filter_var($new_val, self::$params_validation[$key1]['flag']);
             }
 			elseif (is_array($val1) && !empty($val1)) {
                 foreach ($val1 as $key2 => $val2) {
-                    if (!is_array($val2) && !empty($val2) && array_key_exists($key2, $this->params_validation)) {
+                    if (!is_array($val2) && !empty($val2) && array_key_exists($key2, self::$params_validation)) {
                         $new_val = $val2;
 
-                        if (mb_strlen($val2) > $this->params_validation[$key2]['length']) {
-                            $new_val = mb_substr($val2, 0, $this->params_validation[$key2]['length']);
+                        if (mb_strlen($val2) > self::$params_validation[$key2]['length']) {
+                            $new_val = mb_substr($val2, 0, self::$params_validation[$key2]['length']);
                             
                             self::create_log($key2, 'Limit');
                         }
 
-                        $params[$key1][$key2] = filter_var($new_val, $this->params_validation[$key2]['flag']);
+                        $params[$key1][$key2] = filter_var($new_val, self::$params_validation[$key2]['flag']);
                     }
                 }
             }
