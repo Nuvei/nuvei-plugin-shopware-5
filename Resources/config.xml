@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<config xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:noNamespaceSchemaLocation="https://raw.githubusercontent.com/shopware/shopware/5.3/engine/Shopware/Components/Plugin/schema/config.xsd">
+    <elements>
+        <element type="text" scope="locale" required="true">
+            <name>swagSCMerchantId</name>
+            <label lang="en">Merchant ID</label>
+            <description lang="en">Merchant ID is provided by Nuvei.</description>
+        </element>
+        
+        <element type="text" scope="locale" required="true">
+            <name>swagSCMerchantSiteId</name>
+            <label lang="en">Merchant Site ID</label>
+            <description lang="en">Merchant Site ID is provided by Nuvei.</description>
+        </element>
+        
+        <element type="text" scope="locale" required="true">
+            <name>swagSCSecret</name>
+            <label lang="en">Secret key</label>
+            <description lang="en">Secret key is provided by Nuvei.</description>
+        </element>
+        
+        <element type="select" scope="locale">
+            <name>swagSCHash</name>
+            <label lang="en">Hash type</label>
+            <value>sha256</value>
+            <store>
+                <option>
+                    <value>sha256</value>
+                    <label>sha256</label>
+                </option>
+                <option>
+                    <value>md5</value>
+                    <label>md5</label>
+                </option>
+            </store>
+        </element>
+        
+        <element type="boolean" scope="locale">
+            <name>swagSCTestMode</name>
+            <label lang="en">Test mode</label>
+            <value>true</value>
+        </element>
+        
+        <element type="boolean" scope="locale">
+            <name>swagSCSaveLogs</name>
+            <label lang="en">Save logs</label>
+            <value>true</value>
+        </element>
+    </elements>
+</config>
