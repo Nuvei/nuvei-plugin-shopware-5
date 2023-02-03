@@ -79,6 +79,13 @@ class Shopware_Controllers_Frontend_Nuvei extends Enlight_Controller_Action
         
         $req_status = $this->get_request_status($this->params);
         
+        if ('pending' == strtolower($req_status)) {
+            $msg = 'Pending DMN, waiting for the next.';
+
+            Logger::writeLog($this->settings, $msg);
+            exit($msg);
+        }
+        
         if (empty($this->params['TransactionID'])
             || empty($req_status) 
             || empty($this->params['transactionType'])
