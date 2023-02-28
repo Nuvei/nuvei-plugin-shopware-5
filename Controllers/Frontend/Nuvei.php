@@ -142,12 +142,13 @@ class Shopware_Controllers_Frontend_Nuvei extends Enlight_Controller_Action
         
         // keep from repeating DMNs
         $res = $connection->fetchAll(
-            'SELECT nuvei_data, notes FROM nuvei_orders WHERE order_id = ' . (int) $this->order_data['id']);
+//            'SELECT nuvei_data, notes FROM nuvei_orders WHERE order_id = ' . (int) $this->order_data['id']);
+            'SELECT nuvei_data FROM nuvei_orders WHERE order_id = ' . (int) $this->order_data['id']);
         
         if (!empty($res)) {
             $row                = current($res);
             $this->nuvei_data   = json_decode($row['nuvei_data'], true);
-            $this->nuvei_notes  = json_decode($row['notes'], true);
+//            $this->nuvei_notes  = json_decode($row['notes'], true);
             
             if (array_key_exists($this->params['TransactionID'], $this->nuvei_data)
                 && $this->nuvei_data[$this->params['TransactionID']]['Status'] == $req_status

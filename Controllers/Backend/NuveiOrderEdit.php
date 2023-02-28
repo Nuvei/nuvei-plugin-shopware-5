@@ -258,7 +258,6 @@ class Shopware_Controllers_Backend_NuveiOrderEdit extends Shopware_Controllers_B
 //            'currency'              => $order_info['currency'],
             'relatedTransactionId'  => $order_data_to_use['TransactionID'],
 //            'authCode'              => $order_data_to_use['AuthCode'],
-//            'comment'               => $refund['reason'], // optional
             'urlDetails'            => array('notificationUrl' => $notify_url),
             'url'                   => $notify_url, // custom for auto checksum calculation
             'webMasterId'           => Config::NUVEI_WEB_MASTER_ID
@@ -276,156 +275,137 @@ class Shopware_Controllers_Backend_NuveiOrderEdit extends Shopware_Controllers_B
         
         
         
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        $clientUniqueId = uniqid();
-        $router         = Shopware()->Front()->Router();
-        $conn           = $this->container->get('db');
-        $order_id       = (int) $this->Request()->getParam('orderId');
-        $notify_url     = $router->assemble(['controller' => 'Nuvei', 'action' => 'getDmn'])
-            . '?save_logs=' . $settings['swagSCSaveLogs'];
-            
-        $order_data = current($conn->fetchAll("SELECT invoice_amount, currency, status FROM s_order WHERE id = " . $order_id));
-        
-        if($order_data['status'] != Config::SC_ORDER_COMPLETED) {
-            echo json_encode([
-                'status' => 'error',
-                'msg' => 'To create Refund, the Order must be Completed.'
-            ]);
-            exit;
-        }
-        
-        // get refunds
-        $refunded_amount    = 0;
-        $order_refunds      = $conn->fetchAll("SELECT * FROM swag_safecharge_refunds WHERE order_id = " . $order_id);
-        
-        if($order_refunds) {
-            foreach($order_refunds as $refund) {
-                $refunded_amount += $refund['amount'];
-            }
-        }
-        // get refunds END
-        
-        $refund_amount = number_format($this->request->getParam('refundAmount'), 2, '.', '');
-        
-        if(($refund_amount + $refunded_amount) > $order_data['invoice_amount']) {
-            echo json_encode([
-                'status' => 'error',
-                'msg' => 'Refund request Amount is too big.'
-            ]);
-            exit;
-        }
-        
-        $json_arr = SC_REST_API::refund_order(
-            $settings
-            ,array(
-                'id' => $clientUniqueId,
-                'amount' => $this->request->getParam('refundAmount'),
-                'reason' => '' // no reason field
-            )
-            ,array(
-                'order_tr_id' => $payment_custom_fields['relatedTransactionId'],
-                'auth_code' => $payment_custom_fields['authCode'],
-            )
-            ,$order_data['currency']
-            ,$notify_url
-        );
-        
-        if(!$json_arr) {
-            echo json_encode([
-                'status' => 'error',
-                'msg' => 'There is an error with the request response.'
-            ]);
-            exit;
-        }
-        
-        // in case we have message but without status
-        if(!isset($json_arr['status']) && isset($json_arr['msg'])) {
-            // save response message in the History
-            $msg = 'Request Refund #' . $clientUniqueId . ' problem: ' . $json_arr['msg'];
-            
-            // to try refund the Order must be completed
-            $order_module->setOrderStatus($order_id, Config::SC_ORDER_COMPLETED, false, $msg);
-            $order_module->setPaymentStatus($order_id, Config::SC_ORDER_COMPLETED, false, $msg);
-            
-            echo json_encode([
-                'status' => 'error',
-                'msg' => $msg
-            ]);
-            exit;
-        }
-        
-        $refund_url = SC_TEST_REFUND_URL;
-        $cpanel_url = SC_TEST_CPANEL_URL;
-
-        if($settings['test'] == 'no') {
-            $refund_url = SC_LIVE_REFUND_URL;
-            $cpanel_url = SC_LIVE_CPANEL_URL;
-        }
-        
-        $msg = '';
-        $error_note = 'Request Refund #' . $clientUniqueId . ' fail, if you want login into <i>' . $cpanel_url
-            . '</i> and refund Transaction ID ' . $payment_custom_fields[SC_GW_TRANS_ID_KEY];
-
-        if(!is_array($json_arr)) {
-            parse_str($resp, $json_arr);
-        }
-
-        if(!is_array($json_arr)) {
-            $msg = 'Invalid API response. ' . $error_note;
-
-            $order_module->setOrderStatus($order_id, Config::SC_ORDER_COMPLETED, false, $msg);
-            $order_module->setPaymentStatus($order_id, Config::SC_ORDER_COMPLETED, false, $msg);
-            
-            echo json_encode([
-                'status' => 'error',
-                'msg' => $msg
-            ]);
-            exit;
-        }
-        
-        // the status of the request is ERROR
-        if(@$json_arr['status'] == 'ERROR') {
-            $msg = 'Request ERROR - "' . $json_arr['reason'] .'" '. $error_note;
-            
-            $order_module->setOrderStatus($order_id, Config::SC_ORDER_COMPLETED, false, $msg);
-            $order_module->setPaymentStatus($order_id, Config::SC_ORDER_COMPLETED, false, $msg);
-            
-            echo json_encode([
-                'status' => 'error',
-                'msg' => $msg
-            ]);
-            exit;
-        }
-        
-        // if request success, we will wait for DMN
-        $msg = 'Request Refund #' . $clientUniqueId . ', was sent. Please, wait for DMN!';
-        
-        $order_module->setOrderStatus($order_id, Config::SC_ORDER_COMPLETED, false, $msg);
-        $order_module->setPaymentStatus($order_id, Config::SC_ORDER_COMPLETED, false, $msg);
-
-        echo json_encode([
-            'status' => 'success',
-            'msg' => $msg
-        ]);
-        exit;
+//        $clientUniqueId = uniqid();
+//        $router         = Shopware()->Front()->Router();
+//        $conn           = $this->container->get('db');
+//        $order_id       = (int) $this->Request()->getParam('orderId');
+//        $notify_url     = $router->assemble(['controller' => 'Nuvei', 'action' => 'getDmn'])
+//            . '?save_logs=' . $settings['swagSCSaveLogs'];
+//            
+//        $order_data = current($conn->fetchAll("SELECT invoice_amount, currency, status FROM s_order WHERE id = " . $order_id));
+//        
+//        if($order_data['status'] != Config::SC_ORDER_COMPLETED) {
+//            echo json_encode([
+//                'status' => 'error',
+//                'msg' => 'To create Refund, the Order must be Completed.'
+//            ]);
+//            exit;
+//        }
+//        
+//        // get refunds
+//        $refunded_amount    = 0;
+//        $order_refunds      = $conn->fetchAll("SELECT * FROM swag_safecharge_refunds WHERE order_id = " . $order_id);
+//        
+//        if($order_refunds) {
+//            foreach($order_refunds as $refund) {
+//                $refunded_amount += $refund['amount'];
+//            }
+//        }
+//        // get refunds END
+//        
+//        $refund_amount = number_format($this->request->getParam('refundAmount'), 2, '.', '');
+//        
+//        if(($refund_amount + $refunded_amount) > $order_data['invoice_amount']) {
+//            echo json_encode([
+//                'status' => 'error',
+//                'msg' => 'Refund request Amount is too big.'
+//            ]);
+//            exit;
+//        }
+//        
+//        $json_arr = SC_REST_API::refund_order(
+//            $settings
+//            ,array(
+//                'id' => $clientUniqueId,
+//                'amount' => $this->request->getParam('refundAmount'),
+//                'reason' => '' // no reason field
+//            )
+//            ,array(
+//                'order_tr_id' => $payment_custom_fields['relatedTransactionId'],
+//                'auth_code' => $payment_custom_fields['authCode'],
+//            )
+//            ,$order_data['currency']
+//            ,$notify_url
+//        );
+//        
+//        if(!$json_arr) {
+//            echo json_encode([
+//                'status' => 'error',
+//                'msg' => 'There is an error with the request response.'
+//            ]);
+//            exit;
+//        }
+//        
+//        // in case we have message but without status
+//        if(!isset($json_arr['status']) && isset($json_arr['msg'])) {
+//            // save response message in the History
+//            $msg = 'Request Refund #' . $clientUniqueId . ' problem: ' . $json_arr['msg'];
+//            
+//            // to try refund the Order must be completed
+//            $order_module->setOrderStatus($order_id, Config::SC_ORDER_COMPLETED, false, $msg);
+//            $order_module->setPaymentStatus($order_id, Config::SC_ORDER_COMPLETED, false, $msg);
+//            
+//            echo json_encode([
+//                'status' => 'error',
+//                'msg' => $msg
+//            ]);
+//            exit;
+//        }
+//        
+//        $refund_url = SC_TEST_REFUND_URL;
+//        $cpanel_url = SC_TEST_CPANEL_URL;
+//
+//        if($settings['test'] == 'no') {
+//            $refund_url = SC_LIVE_REFUND_URL;
+//            $cpanel_url = SC_LIVE_CPANEL_URL;
+//        }
+//        
+//        $msg = '';
+//        $error_note = 'Request Refund #' . $clientUniqueId . ' fail, if you want login into <i>' . $cpanel_url
+//            . '</i> and refund Transaction ID ' . $payment_custom_fields[SC_GW_TRANS_ID_KEY];
+//
+//        if(!is_array($json_arr)) {
+//            parse_str($resp, $json_arr);
+//        }
+//
+//        if(!is_array($json_arr)) {
+//            $msg = 'Invalid API response. ' . $error_note;
+//
+//            $order_module->setOrderStatus($order_id, Config::SC_ORDER_COMPLETED, false, $msg);
+//            $order_module->setPaymentStatus($order_id, Config::SC_ORDER_COMPLETED, false, $msg);
+//            
+//            echo json_encode([
+//                'status' => 'error',
+//                'msg' => $msg
+//            ]);
+//            exit;
+//        }
+//        
+//        // the status of the request is ERROR
+//        if(@$json_arr['status'] == 'ERROR') {
+//            $msg = 'Request ERROR - "' . $json_arr['reason'] .'" '. $error_note;
+//            
+//            $order_module->setOrderStatus($order_id, Config::SC_ORDER_COMPLETED, false, $msg);
+//            $order_module->setPaymentStatus($order_id, Config::SC_ORDER_COMPLETED, false, $msg);
+//            
+//            echo json_encode([
+//                'status' => 'error',
+//                'msg' => $msg
+//            ]);
+//            exit;
+//        }
+//        
+//        // if request success, we will wait for DMN
+//        $msg = 'Request Refund #' . $clientUniqueId . ', was sent. Please, wait for DMN!';
+//        
+//        $order_module->setOrderStatus($order_id, Config::SC_ORDER_COMPLETED, false, $msg);
+//        $order_module->setPaymentStatus($order_id, Config::SC_ORDER_COMPLETED, false, $msg);
+//
+//        echo json_encode([
+//            'status' => 'success',
+//            'msg' => $msg
+//        ]);
+//        exit;
     }
     
     /**

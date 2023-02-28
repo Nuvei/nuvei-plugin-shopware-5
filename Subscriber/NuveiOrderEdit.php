@@ -8,6 +8,7 @@ namespace SwagNuvei\Subscriber;
 
 use Doctrine\DBAL\Connection;
 use Enlight\Event\SubscriberInterface;
+use SwagNuvei\Logger;
 
 class NuveiOrderEdit implements SubscriberInterface
 {
@@ -56,22 +57,22 @@ class NuveiOrderEdit implements SubscriberInterface
             $view->addTemplateDir($this->pluginDirectory . '/Resources/views');
             
             $query = $this->connection->createQueryBuilder();
-            $query->select(['notes'])
+            $query->select(['nuvei_data'])
                 ->from('nuvei_orders')
                 ->where('order_id = :orderId')
                 ->setParameter('orderId', $order_id);
 
             $sc_data_json   = $query->execute()->fetchColumn();
             $sc_data_arr    = [];
-
-            if(@$sc_data_json) {
-                $sc_data_arr = json_decode($sc_data_json, true);
+            
+            if (!empty($sc_data_json) && is_array($arr = json_decode($sc_data_json, true))) {
+               foreach ($arr as $trId => $data) {
+                   $sc_data_arr[] = $data['comment'];
+               }
             }
             
             // we can not use the statement because of SW cashing
-//            if (isset($sc_data_arr['relatedTransactionId']) && !empty($sc_data_arr['relatedTransactionId'])) {
-                $view->extendsTemplate('backend/nuvei/order/view/detail/overview.js');
-//            }
+            $view->extendsTemplate('backend/nuvei/order/view/detail/overview.js');
         }
     }
     

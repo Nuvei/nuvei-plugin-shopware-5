@@ -27,8 +27,8 @@ class SwagNuvei extends Plugin
             $context->getPlugin(),
             [
                 'name'          => Config::NUVEI_CODE,
-                'class'         => Config::NUVEI_CODE . '.php',
-                'template'      => Config::NUVEI_CODE . '.tpl',
+//                'class'         => Config::NUVEI_CODE . '.php',
+//                'template'      => Config::NUVEI_CODE . '.tpl',
                 'description'   => Config::NUVEI_DESCR,
                 'action'        => 'NuveiPayment',
                 'active'        => 1,
@@ -60,11 +60,20 @@ class SwagNuvei extends Plugin
 //                KEY `orderId` (`order_id`)
 //              ) ENGINE=InnoDB DEFAULT CHARSET=utf8;";
         
+//        $sql =
+//            "CREATE TABLE IF NOT EXISTS `nuvei_orders` (
+//                `order_id` int(10) unsigned NOT NULL,
+//                `nuvei_data` text NOT NULL,
+//                `notes` text NOT NULL,
+//                
+//                PRIMARY KEY (order_id),
+//                UNIQUE (order_id)
+//              ) ENGINE=InnoDB DEFAULT CHARSET=utf8;";
+        
         $sql =
             "CREATE TABLE IF NOT EXISTS `nuvei_orders` (
                 `order_id` int(10) unsigned NOT NULL,
                 `nuvei_data` text NOT NULL,
-                `notes` text NOT NULL,
                 
                 PRIMARY KEY (order_id),
                 UNIQUE (order_id)
