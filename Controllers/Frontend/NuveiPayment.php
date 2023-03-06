@@ -59,7 +59,7 @@ class Shopware_Controllers_Frontend_NuveiPayment extends Shopware_Controllers_Fr
         $params['merchant_site_id'] = $this->settings['swagSCMerchantSiteId'];
         $params['discount']         = 0;
         $params['time_stamp']       = date('Ymdhis');
-        $params['handling']         = '0.00';
+        $params['handling']         = number_format($basket['sShippingcosts'], 2, '.', '');
         $params['total_tax']        = '0.00';
         $params['encoding']         = 'utf-8';
 		$params['version']          = '4.0.0';
@@ -136,6 +136,8 @@ class Shopware_Controllers_Frontend_NuveiPayment extends Shopware_Controllers_Fr
         $items  = $basket['sBasket']['content'];
         $i      = $items_total_sum = 0;
         
+//        Logger::writeLog($this->settings, $items, '$items');
+        
         // get items
         foreach ( $items as $item ) {
             // remove Vouchers and Discounts from the Items
@@ -149,16 +151,19 @@ class Shopware_Controllers_Frontend_NuveiPayment extends Shopware_Controllers_Fr
             $params['item_name_'.$i]        = $item['articlename'];
             $params['item_number_'.$i]      = $item['articleID'];
             $params['item_quantity_'.$i]    = $item['quantity'];
-            $params['item_amount_'.$i]      = $item['amountNumeric'];
             $params['item_amount_'.$i]      = (float) str_replace(',', '.', $item['price']);
 
             $items_total_sum = $params['item_amount_'.$i] * $item['quantity'];
         }
 
+        Logger::writeLog($this->settings, $items_total_sum, '$items_total_sum');
+        
         $params['numberofitems'] = $i;
 
         // last check for correct calculations
         $test_diff = $params['total_amount'] - $params['handling'] - $items_total_sum;
+        
+        Logger::writeLog($this->settings, $test_diff, '$test_diff');
 
         if($test_diff != 0) {
             if($test_diff < 0 && $params['handling'] + $test_diff >= 0) {
@@ -171,7 +176,7 @@ class Shopware_Controllers_Frontend_NuveiPayment extends Shopware_Controllers_Fr
             Logger::writeLog($this->settings, $test_diff, 'Total diff, added to handling');
         }
 
-        $params['handling'] = number_format($basket['sShippingcosts'], 2, '.', '');
+//        $params['handling'] = number_format($basket['sShippingcosts'], 2, '.', '');
         $params['discount'] = number_format($params['discount'], 2, '.', '');
 
         // be sure there are no array elements in $params !!!

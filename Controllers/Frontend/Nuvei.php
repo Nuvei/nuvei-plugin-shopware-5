@@ -4,12 +4,11 @@
  * @author Nuvei
  */
 
-//use Shopware\Bundle\StoreFrontBundle\Struct\Payment;
-//use SwagNuvei\Components\Nuvei\PaymentResponse;
+use Shopware\Components\CSRFWhitelistAware;
 use SwagNuvei\Config;
 use SwagNuvei\Logger;
 
-class Shopware_Controllers_Frontend_Nuvei extends Enlight_Controller_Action
+class Shopware_Controllers_Frontend_Nuvei extends Enlight_Controller_Action implements CSRFWhitelistAware
 {
     private $logs_path      = '';
     private $plugin_dir     = '';
@@ -21,6 +20,10 @@ class Shopware_Controllers_Frontend_Nuvei extends Enlight_Controller_Action
     private $params;
     private $sys_config;
 
+    public function getWhitelistedCSRFActions(): array {
+        return ['cancelAction', 'indexAction'];
+    }
+    
     public function indexAction()
     {
         $this->getPluginSettings();
@@ -124,17 +127,17 @@ class Shopware_Controllers_Frontend_Nuvei extends Enlight_Controller_Action
                 $this->order_data = current($res);
             }
             
-            if (!$this->order_data) {
+            if (empty($this->order_data)) {
                 Logger::writeLog($this->settings, 'Can not find Order data. Try ' . $tryouts);
                 sleep(2);
             }
         }
-        while($this->order_data && $tryouts < 4);
+        while(empty($this->order_data) && $tryouts < 5);
         
         if (empty($this->order_data)) {
             $msg = 'Order data was not found.';
             
-            Logger::writeLog($this->settings, $msg);
+            Logger::writeLog($this->settings, [$tryouts, $this->order_data], $msg);
             exit($msg);
         }
         

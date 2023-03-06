@@ -39,36 +39,8 @@ class SwagNuvei extends Plugin
             ]
         );
         
-        // create custom field for the orders
-//        $service = $this->container->get('shopware_attribute.crud_service');
-//        $service->update('s_order_attributes', 'safecharge_order_field', 'text');
-        
         // create refunds table
         $connection = $this->container->get('dbal_connection');
-        
-//        $sql =
-//            "CREATE TABLE IF NOT EXISTS `swag_safecharge_refunds` (
-//                `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
-//                `order_id` int(10) unsigned NOT NULL,
-//                `client_unique_id` varchar(50) NOT NULL,
-//                `amount` varchar(15) NOT NULL,
-//                `transaction_id` varchar(20) NOT NULL,
-//                `auth_code` varchar(10) NOT NULL,
-//                `date` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
-//                
-//                PRIMARY KEY (`id`),
-//                KEY `orderId` (`order_id`)
-//              ) ENGINE=InnoDB DEFAULT CHARSET=utf8;";
-        
-//        $sql =
-//            "CREATE TABLE IF NOT EXISTS `nuvei_orders` (
-//                `order_id` int(10) unsigned NOT NULL,
-//                `nuvei_data` text NOT NULL,
-//                `notes` text NOT NULL,
-//                
-//                PRIMARY KEY (order_id),
-//                UNIQUE (order_id)
-//              ) ENGINE=InnoDB DEFAULT CHARSET=utf8;";
         
         $sql =
             "CREATE TABLE IF NOT EXISTS `nuvei_orders` (
