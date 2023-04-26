@@ -9,7 +9,7 @@
     <link>https://nuvei.com</link>
     <author>Nuvei</author>
     <compatibility minVersion="5.3.0"/>
-    <changelog version="1.0.0">
-        <changes lang="en">First release</changes>
-    </changelog>
+<!--    <changelog version="1.0.0">
+        <changes lang="en">Changed the Company name.</changes>
+    </changelog>-->
 </plugin>

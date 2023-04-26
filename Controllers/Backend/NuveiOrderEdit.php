@@ -7,7 +7,7 @@
 use Shopware\Components\CSRFGetProtectionAware;
 use SwagNuvei\Config;
 use SwagNuvei\Logger;
-use SwagNuvei\SC_REST_API;
+use SwagNuvei\Nuvei;
 
 class Shopware_Controllers_Backend_NuveiOrderEdit extends Shopware_Controllers_Backend_ExtJs implements CSRFGetProtectionAware
 {
@@ -270,7 +270,7 @@ class Shopware_Controllers_Backend_NuveiOrderEdit extends Shopware_Controllers_B
 //            'authCode', 
             'url', 'timeStamp'];
         
-        $resp = SC_REST_API::call_rest_api('refundTransaction', $params, $checksum_params, $this->settings);
+        $resp = Nuvei::call_rest_api('refundTransaction', $params, $checksum_params, $this->settings);
         exit(json_encode($resp));
         
         
@@ -313,7 +313,7 @@ class Shopware_Controllers_Backend_NuveiOrderEdit extends Shopware_Controllers_B
 //            exit;
 //        }
 //        
-//        $json_arr = SC_REST_API::refund_order(
+//        $json_arr = Nuvei::refund_order(
 //            $settings
 //            ,array(
 //                'id' => $clientUniqueId,
@@ -458,7 +458,7 @@ class Shopware_Controllers_Backend_NuveiOrderEdit extends Shopware_Controllers_B
             
         $checksum_params = ['merchantId', 'merchantSiteId', 'clientRequestId', 'clientUniqueId', 'amount', 'currency', 'relatedTransactionId', 'authCode', 'url', 'timeStamp'];
         
-        $resp = SC_REST_API::call_rest_api($action . 'Transaction', $params, $checksum_params, $this->settings);
+        $resp = Nuvei::call_rest_api($action . 'Transaction', $params, $checksum_params, $this->settings);
         exit(json_encode($resp));
     }
 

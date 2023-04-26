@@ -6,4 +6,5 @@
 ```
     * Use Nuvei instead of Safecharge into the file names.
     * Use new custom table for Nuvei orders.
+    * Added changelog and readme files.
 ```
