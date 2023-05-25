@@ -46,7 +46,7 @@ class Nuvei
             'clientUniqueId'        => $time . '_' . uniqid(),
             'timeStamp'             => $time,
             'deviceDetails'         => self::get_device_details(),
-//            'sourceApplication'     => '', // TODO
+            'sourceApplication'     => 'Shopwre_Plugin',
 		);
 		
 		$params = self::validate_parameters($params); // validate parameters

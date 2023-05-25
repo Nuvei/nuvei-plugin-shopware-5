@@ -2,6 +2,12 @@
 
 ---
 
+# 2.0.1
+```
+    * Added sourceApplication parameter.
+    * Added the plugin version into webMasterId parameter.
+```
+
 # 2.0.0
 ```
     * Use Nuvei instead of Safecharge into the file names.

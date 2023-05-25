@@ -261,7 +261,8 @@ class Shopware_Controllers_Backend_NuveiOrderEdit extends Shopware_Controllers_B
             'urlDetails'            => array('notificationUrl' => $notify_url),
             'url'                   => $notify_url, // custom for auto checksum calculation
             'webMasterId'           => Config::NUVEI_WEB_MASTER_ID
-                . $this->container->getParameter('shopware.release.version'),
+                . $this->container->getParameter('shopware.release.version')
+                . '; Plugin v' . Config::NUVEI_PLUGIN_VERSION,
         );
         
         $checksum_params = ['merchantId', 'merchantSiteId', 'clientRequestId', 'clientUniqueId', 'amount', 
@@ -453,7 +454,8 @@ class Shopware_Controllers_Backend_NuveiOrderEdit extends Shopware_Controllers_B
             'urlDetails'            => array('notificationUrl' => $notify_url),
             'url'                   => $notify_url, // custom for auto checksum calculation
             'webMasterId'           => Config::NUVEI_WEB_MASTER_ID
-                . $this->container->getParameter('shopware.release.version'),
+                . $this->container->getParameter('shopware.release.version')
+                . '; Plugin v' . Config::NUVEI_PLUGIN_VERSION,
         ];
             
         $checksum_params = ['merchantId', 'merchantSiteId', 'clientRequestId', 'clientUniqueId', 'amount', 'currency', 'relatedTransactionId', 'authCode', 'url', 'timeStamp'];

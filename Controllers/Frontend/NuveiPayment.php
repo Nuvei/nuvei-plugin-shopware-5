@@ -11,7 +11,7 @@ use SwagNuvei\Logger;
 class Shopware_Controllers_Frontend_NuveiPayment extends Shopware_Controllers_Frontend_Payment
 {
     private $save_logs =    false;
-    private $webMasterId =  'ShopWare ';
+//    private $webMasterId =  'ShopWare ';
     private $logs_path =    '';
     private $plugin_dir =   '';
     private $sys_config =   [];
@@ -131,7 +131,8 @@ class Shopware_Controllers_Frontend_NuveiPayment extends Shopware_Controllers_Fr
         $params['currency']         = $this->getCurrencyShortName();
         $params['merchantLocale']   = $locale;
         $params['webMasterId']      = Config::NUVEI_WEB_MASTER_ID
-            . $this->container->getParameter('shopware.release.version');
+            . $this->container->getParameter('shopware.release.version')
+            . '; Plugin v' . Config::NUVEI_PLUGIN_VERSION;
         
         $items  = $basket['sBasket']['content'];
         $i      = $items_total_sum = 0;
