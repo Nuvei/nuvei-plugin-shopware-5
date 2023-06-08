@@ -108,20 +108,22 @@ class Shopware_Controllers_Frontend_Nuvei extends Enlight_Controller_Action impl
         
         $connection = $this->container->get('dbal_connection');
         $tryouts    = 0;
+        $trId       = (int) $this->params['TransactionID'];
+        
+        if (!empty($this->params['relatedTransactionId'])) {
+            $trId = (int) $this->params['relatedTransactionId'];
+        }
+        
+        $query =
+                'SELECT id, ordernumber, status, cleared, invoice_amount, currency '
+                . 'FROM s_order '
+                . 'WHERE transactionID = ' . (int) $trId;
         
         do {
             $tryouts++;
+            
             // cleared is the payment status
-            $res = $connection->fetchAll(
-                'SELECT id, ordernumber, status, cleared, invoice_amount, currency '
-                    . 'FROM s_order '
-                    . 'WHERE transactionID <> "" '
-                        . 'AND transactionID IN (:trID1, :trID2)',
-                [
-                    'trID1' => $this->params['TransactionID'],
-                    'trID2' => $this->params['relatedTransactionId'],
-                ]
-            );
+            $res = $connection->fetchAll($query);
             
             if (!empty($res) && is_array($res)) {
                 $this->order_data = current($res);
@@ -144,14 +146,12 @@ class Shopware_Controllers_Frontend_Nuvei extends Enlight_Controller_Action impl
         Logger::writeLog($this->settings, $this->order_data, 'order_data');
         
         // keep from repeating DMNs
-        $res = $connection->fetchAll(
-//            'SELECT nuvei_data, notes FROM nuvei_orders WHERE order_id = ' . (int) $this->order_data['id']);
-            'SELECT nuvei_data FROM nuvei_orders WHERE order_id = ' . (int) $this->order_data['id']);
+        $res = $connection->fetchAll('SELECT nuvei_data FROM nuvei_orders WHERE order_id = ' 
+            . (int) $this->order_data['id']);
         
         if (!empty($res)) {
             $row                = current($res);
             $this->nuvei_data   = json_decode($row['nuvei_data'], true);
-//            $this->nuvei_notes  = json_decode($row['notes'], true);
             
             if (array_key_exists($this->params['TransactionID'], $this->nuvei_data)
                 && $this->nuvei_data[$this->params['TransactionID']]['Status'] == $req_status
@@ -250,6 +250,7 @@ class Shopware_Controllers_Frontend_Nuvei extends Enlight_Controller_Action impl
     
     private function refundDmn()
     {
+        Logger::writeLog($this->settings, "Missing Refund DMN functionality.");
         return;
     }
     
@@ -300,8 +301,11 @@ class Shopware_Controllers_Frontend_Nuvei extends Enlight_Controller_Action impl
         
         $str = hash(
             $this->settings['swagSCHash'],
-            $this->settings['swagSCSecret'] . $this->params['totalAmount'] . $this->params['currency']
-                . $this->params['responseTimeStamp'] . $this->params['PPP_TransactionID']
+            $this->settings['swagSCSecret']
+                . $this->params['totalAmount'] 
+                . $this->params['currency']
+                . $this->params['responseTimeStamp'] 
+                . $this->params['PPP_TransactionID']
                 . $status . $this->params['productId']
         );
         

@@ -6,6 +6,7 @@
 ```
     * Added sourceApplication parameter.
     * Added the plugin version into webMasterId parameter.
+    * Fix for Settle and Void actions.
 ```
 
 # 2.0.0
