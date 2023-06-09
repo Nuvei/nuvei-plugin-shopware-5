@@ -250,8 +250,23 @@ class Shopware_Controllers_Frontend_Nuvei extends Enlight_Controller_Action impl
     
     private function refundDmn()
     {
-        Logger::writeLog($this->settings, "Missing Refund DMN functionality.");
-        return;
+        if(!in_array($this->params['transactionType'], ['Credit', 'Refund'])) {
+            return;
+        }
+        
+        if (!in_array(
+                $this->order_data['cleared'], 
+                [Config::SC_PARTIALLY_REFUNDED, Config::SC_ORDER_PAID]
+            )
+            || Config::SC_ORDER_NOT_VISIBLE == $this->order_data['status']
+        ) {
+            $msg = 'The current order status can not be Refunded.';
+            
+            Logger::writeLog($this->settings, $msg);
+            exit($msg);
+        }
+        
+        
     }
     
     private function voidDmn()
