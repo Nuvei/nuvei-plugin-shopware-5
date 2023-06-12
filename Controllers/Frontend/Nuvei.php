@@ -266,7 +266,13 @@ class Shopware_Controllers_Frontend_Nuvei extends Enlight_Controller_Action impl
             exit($msg);
         }
         
+        $this->changeOrderStatus();
+        $this->saveNuveiData($this->order_data);
         
+        $msg = 'DMN received.';
+            
+        Logger::writeLog($this->settings, $msg);
+        exit($msg);
     }
     
     private function voidDmn()

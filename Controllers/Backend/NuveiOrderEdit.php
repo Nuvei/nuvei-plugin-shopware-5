@@ -36,20 +36,44 @@ class Shopware_Controllers_Backend_NuveiOrderEdit extends Shopware_Controllers_B
         $nuvei_data_last        = [];
         $nuvei_data_last_tr_id  = 0;
         $refunds                = [];
+        $refunded_amount        = 0;
         $notes                  = [];
         
-        $order_status = $this->container->get('db')->fetchOne(
-            "SELECT status FROM s_order WHERE id = " . $order_id);
+//        $order_status = $this->container->get('db')->fetchOne(
+//            "SELECT status FROM s_order WHERE id = " . $order_id);
+        $order_data = $this->container->get('db')->fetchAll(
+            "SELECT status, invoice_amount FROM s_order WHERE id = " . $order_id);
         
-        if (!is_numeric($order_status)) {
+        if (!is_array($order_data)
+            || empty($order_data[0]['status'])
+            || !is_numeric($order_data[0]['status'])
+            || empty($order_data[0]['invoice_amount'])
+            || !is_numeric($order_data[0]['invoice_amount'])
+        ) {
             $msg = 'Problem with the Order Status.';
             
-            Logger::writeLog($this->settings, $order_status, $msg, 'WARN');
+            Logger::writeLog($this->settings, $order_data, $msg, 'WARN');
             exit(json_encode([
                 'status'    => 'error',
                 'msg'       => $msg
             ]));
         }
+        
+        $order_status = $order_data[0]['status'];
+        $order_amount = $order_data[0]['invoice_amount'];
+        
+//        Logger::writeLog($this->settings, $order_data);
+//        die;
+//        
+//        if (!is_numeric($order_status)) {
+//            $msg = 'Problem with the Order Status.';
+//            
+//            Logger::writeLog($this->settings, $order_status, $msg, 'WARN');
+//            exit(json_encode([
+//                'status'    => 'error',
+//                'msg'       => $msg
+//            ]));
+//        }
         
         // get Nuvei data for the Order
         $nuvei_data_str = $this->container->get('db')->fetchOne(
@@ -85,7 +109,8 @@ class Shopware_Controllers_Backend_NuveiOrderEdit extends Shopware_Controllers_B
             }
             
             if (in_array($transaction['transactionType'], ['Refund', 'Credit'])) {
-                $refunds[$tr_id] = $transaction;
+                $refunds[$tr_id]    = $transaction;
+                $refunded_amount    += $transaction['totalAmount'];
             }
             
             $notes[$tr_id] = [
@@ -97,8 +122,12 @@ class Shopware_Controllers_Backend_NuveiOrderEdit extends Shopware_Controllers_B
         ksort($refunds);
         ksort($notes);
         
+        Logger::writeLog($this->settings, $refunds);
+        
         $enable_void = 0;
-        if(in_array($order_status, [Config::SC_ORDER_IN_PROGRESS, Config::SC_ORDER_COMPLETED])) {
+        if(in_array($order_status, [Config::SC_ORDER_IN_PROGRESS, Config::SC_ORDER_COMPLETED]) 
+            && empty($refunds)
+        ) {
             $enable_void = $nuvei_data_last_tr_id;
         }
         
@@ -106,6 +135,7 @@ class Shopware_Controllers_Backend_NuveiOrderEdit extends Shopware_Controllers_B
         if ($order_status == Config::SC_ORDER_COMPLETED
             && isset($nuvei_data_last['payment_method'])
             && in_array($nuvei_data_last['payment_method'], Config::NUVEI_REFUND_PAYMETNS)
+            && $refunded_amount < $order_amount
         ) {
             $enable_refund = $nuvei_data_last_tr_id;
         }
