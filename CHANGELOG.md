@@ -9,6 +9,7 @@
     * Fix for Settle and Void actions.
     * Added missing logic for Refund DMNs.
     * New domain for Sandbox endpoints.
+    * Fixed plugin icon.
 ```
 
 # 2.0.0
