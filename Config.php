@@ -12,10 +12,10 @@ class Config
     const NUVEI_CODE                = 'nuvei_payments';
     const NUVEI_DESCR               = 'Nuvei Payments';
     
-    const NUVEI_ENDPOINT_SANDBOX    = 'https://ppp-test.safecharge.com/ppp/api/v1/';
+    const NUVEI_ENDPOINT_SANDBOX    = 'https://ppp-test.nuvei.com/ppp/api/v1/';
     const NUVEI_ENDPOINT_PROD       = 'https://secure.safecharge.com/ppp/api/v1/';
     
-    const NUVEI_CASHIER_SANDBOX     = 'https://ppp-test.safecharge.com/ppp/purchase.do';
+    const NUVEI_CASHIER_SANDBOX     = 'https://ppp-test.nuvei.com/ppp/purchase.do';
     const NUVEI_CASHIER_PROD        = 'https://secure.safecharge.com/ppp/purchase.do';
     
     const NUVEI_CPANEL_SANDBOX      = 'sandbox.safecharge.com';
