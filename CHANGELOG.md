@@ -10,6 +10,7 @@
     * Added missing logic for Refund DMNs.
     * New domain for Sandbox endpoints.
     * Fixed plugin icon.
+    * Return code 400 to the Cashier, when the plugin did not find an OC Order nby the DMN data.
 ```
 
 # 2.0.0

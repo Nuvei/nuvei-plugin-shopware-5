@@ -89,15 +89,15 @@ class Shopware_Controllers_Frontend_Nuvei extends Enlight_Controller_Action impl
             exit($msg);
         }
         
-        if (empty($this->params['TransactionID'])
-            || empty($req_status) 
-            || empty($this->params['transactionType'])
-        ) {
-            $msg = 'Missing mandatory DMN parameter.';
-            
-            Logger::writeLog($this->settings, $msg);
-            exit($msg);
-        }
+//        if (empty($this->params['TransactionID'])
+//            || empty($req_status) 
+//            || empty($this->params['transactionType'])
+//        ) {
+//            $msg = 'Missing mandatory DMN parameter.';
+//            
+//            Logger::writeLog($this->settings, $msg);
+//            exit($msg);
+//        }
         
         if(!$this->checkAdvRespChecksum()) {
             $msg = 'DMN report: You receive DMN from not trusted source. The process ends here.';
@@ -115,9 +115,9 @@ class Shopware_Controllers_Frontend_Nuvei extends Enlight_Controller_Action impl
         }
         
         $query =
-                'SELECT id, ordernumber, status, cleared, invoice_amount, currency '
-                . 'FROM s_order '
-                . 'WHERE transactionID = ' . (int) $trId;
+            'SELECT id, ordernumber, status, cleared, invoice_amount, currency '
+            . 'FROM s_order '
+            . 'WHERE transactionID = ' . (int) $trId;
         
         do {
             $tryouts++;
@@ -138,8 +138,9 @@ class Shopware_Controllers_Frontend_Nuvei extends Enlight_Controller_Action impl
         
         if (empty($this->order_data)) {
             $msg = 'Order data was not found.';
-            
             Logger::writeLog($this->settings, [$tryouts, $this->order_data], $msg);
+            
+            http_response_code(400);
             exit($msg);
         }
         
