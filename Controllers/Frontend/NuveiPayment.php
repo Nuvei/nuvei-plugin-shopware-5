@@ -55,8 +55,8 @@ class Shopware_Controllers_Frontend_NuveiPayment extends Shopware_Controllers_Fr
         $router     = $this->Front()->Router();
         $user       = Shopware()->Modules()->Admin()->sGetUserData();
         
-        $params['merchant_id']      = $this->settings['swagSCMerchantId'];
-        $params['merchant_site_id'] = $this->settings['swagSCMerchantSiteId'];
+        $params['merchant_id']      = trim($this->settings['swagSCMerchantId']);
+        $params['merchant_site_id'] = trim($this->settings['swagSCMerchantSiteId']);
         $params['discount']         = 0;
         $params['time_stamp']       = date('Ymdhis');
         $params['handling']         = number_format($basket['sShippingcosts'], 2, '.', '');
@@ -184,7 +184,7 @@ class Shopware_Controllers_Frontend_NuveiPayment extends Shopware_Controllers_Fr
         // be sure there are no array elements in $params !!!
         $params['checksum'] = hash(
             $this->settings['swagSCHash']
-            ,stripslashes($this->settings['swagSCSecret'] . implode('', $params))
+            ,stripslashes(trim($this->settings['swagSCSecret']) . implode('', $params))
         );
 
         $params_inputs = '';

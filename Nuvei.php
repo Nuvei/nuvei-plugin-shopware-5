@@ -41,8 +41,8 @@ class Nuvei
 		$url                    = self::get_endpoint_base() . $method . '.do';
         $time                   = gmdate('Ymdhis');
 		$request_base_params    = array(
-			'merchantId'            => $plugin_settings['swagSCMerchantId'],
-			'merchantSiteId'        => $plugin_settings['swagSCMerchantSiteId'],
+			'merchantId'            => trim($plugin_settings['swagSCMerchantId']),
+			'merchantSiteId'        => trim($plugin_settings['swagSCMerchantSiteId']),
             'clientUniqueId'        => $time . '_' . uniqid(),
             'timeStamp'             => $time,
             'deviceDetails'         => self::get_device_details(),
@@ -66,7 +66,7 @@ class Nuvei
 		
 		$all_params['checksum'] = hash(
 			$plugin_settings['swagSCHash'],
-			$concat . $plugin_settings['swagSCSecret']
+			$concat . trim($plugin_settings['swagSCSecret'])
 		);
 		// add the checksum END
         

@@ -397,7 +397,7 @@ class Shopware_Controllers_Frontend_Nuvei extends Enlight_Controller_Action impl
         
         $str = hash(
             $this->settings['swagSCHash'],
-            $this->settings['swagSCSecret']
+            trim($this->settings['swagSCSecret'])
                 . $this->params['totalAmount'] 
                 . $this->params['currency']
                 . $this->params['responseTimeStamp'] 
