@@ -11,6 +11,7 @@
     * New domain for Sandbox endpoints.
     * Fixed plugin icon.
     * Return code 400 to the Cashier, when the plugin did not find an OC Order nby the DMN data.
+    * Implemented Auto-Void.
 ```
 
 # 2.0.0

@@ -7,6 +7,7 @@
 use Shopware\Components\CSRFWhitelistAware;
 use SwagNuvei\Config;
 use SwagNuvei\Logger;
+use SwagNuvei\Nuvei;
 
 class Shopware_Controllers_Frontend_Nuvei extends Enlight_Controller_Action implements CSRFWhitelistAware
 {
@@ -138,9 +139,11 @@ class Shopware_Controllers_Frontend_Nuvei extends Enlight_Controller_Action impl
         
         if (empty($this->order_data)) {
             $msg = 'Order data was not found.';
-            Logger::writeLog($this->settings, [$tryouts, $this->order_data], $msg);
-            
             http_response_code(400);
+            
+            $this->createAutoVoid();
+            
+            Logger::writeLog($this->settings, [$tryouts, $this->order_data], $msg);
             exit($msg);
         }
         
@@ -176,6 +179,77 @@ class Shopware_Controllers_Frontend_Nuvei extends Enlight_Controller_Action impl
             
         Logger::writeLog($this->settings, $msg);
         exit($msg);
+    }
+    
+    private function createAutoVoid()
+    {
+        $order_request_time	= $this->params['customField1']; // time of create/update order
+        $curr_time          = time();
+        $transactionType    = $this->params['transactionType'];
+        
+        Logger::writeLog(
+            $this->settings,
+            [
+                $order_request_time,
+                $transactionType,
+                $curr_time
+            ],
+            'create_auto_void'
+        );
+        
+        // not allowed Auto-Void
+        if (empty($order_request_time)) {
+            Logger::writeLog(
+                $this->settings,
+                $order_request_time,
+                'There is problem with $order_request_time. End process.',
+                'WARINING'
+            );
+            return;
+        }
+        
+        if (!in_array($transactionType, array('Auth', 'Sale'), true)) {
+            Logger::writeLog($this->settings, $transactionType, 'The transacion is not in allowed range.');
+            return;
+        }
+        
+        if ($curr_time - $order_request_time <= 1800) {
+            Logger::writeLog($this->settings, "Let's wait one more DMN try.");
+            return;
+        }
+        // /not allowed Auto-Void
+        
+        $notify_url     = $this->Front()->Router()->assemble(['controller' => 'Nuvei', 'action' => 'index']);
+        $void_params    = [
+            'clientUniqueId'        => date('YmdHis') . '_' . uniqid(),
+            'amount'                => (string) $this->params['totalAmount'],
+            'currency'              => $this->params['currency'],
+            'relatedTransactionId'  => $this->params['TransactionID'],
+            'url'                   => $notify_url,
+            'urlDetails'            => ['notificationUrl' => $notify_url],
+            'customData'            => 'This is Auto-Void transaction',
+        ];
+
+        $resp = Nuvei::call_rest_api(
+            'voidTransaction',
+            $void_params,
+            ['merchantId', 'merchantSiteId', 'clientRequestId', 'clientUniqueId', 'amount', 'currency', 'relatedTransactionId', 'url', 'timeStamp'],
+            $this->settings
+        );
+
+        // Void Success
+        if (!empty($resp['transactionStatus'])
+            && 'APPROVED' == $resp['transactionStatus']
+            && !empty($resp['transactionId'])
+        ) {
+            $msg = 'The searched Order does not exists, a Void request was made for this Transacrion.';
+            Logger::writeLog($this->settings, $msg);
+            
+            http_response_code(200);
+            exit($msg);
+        }
+        
+        return;
     }
     
     /**

@@ -64,6 +64,7 @@ class Shopware_Controllers_Frontend_NuveiPayment extends Shopware_Controllers_Fr
         $params['encoding']         = 'utf-8';
 		$params['version']          = '4.0.0';
         $params['user_token']       = "auto";
+        $params['customField1']     = time();
         
         if($basket['sAmount'] < 0) {
             $params['total_amount'] = number_format(0, 2, '.', '');
