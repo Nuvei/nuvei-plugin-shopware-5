@@ -13,6 +13,7 @@
     * Return code 400 to the Cashier, when the plugin did not find an OC Order nby the DMN data.
     * Implemented Auto-Void.
     * Trim the merchant credentials after get them.
+    * Set different delay time in the DMN logic according the environment.
 ```
 
 # 2.0.0

@@ -76,7 +76,6 @@ class Shopware_Controllers_Frontend_Nuvei extends Enlight_Controller_Action impl
             && 'CARD_TOKENIZATION' == $this->params['type']
         ) {
             $msg = 'DMN report - this is Card Tokenization DMN.';
-
             Logger::writeLog($this->settings, $msg);
             exit($msg);
         }
@@ -107,9 +106,11 @@ class Shopware_Controllers_Frontend_Nuvei extends Enlight_Controller_Action impl
             exit($msg);
         }
         
-        $connection = $this->container->get('dbal_connection');
-        $tryouts    = 0;
-        $trId       = (int) $this->params['TransactionID'];
+        $connection     = $this->container->get('dbal_connection');
+        $trId           = (int) $this->params['TransactionID'];
+        $tryouts        = 0;
+        $max_tryouts    = 1 == $this->settings['swagSCTestMode'] ? 10 : 4;
+        $wait_type      = 3; // seconds
         
         if (!empty($this->params['relatedTransactionId'])) {
             $trId = (int) $this->params['relatedTransactionId'];
@@ -132,10 +133,10 @@ class Shopware_Controllers_Frontend_Nuvei extends Enlight_Controller_Action impl
             
             if (empty($this->order_data)) {
                 Logger::writeLog($this->settings, 'Can not find Order data. Try ' . $tryouts);
-                sleep(2);
+                sleep($wait_type);
             }
         }
-        while(empty($this->order_data) && $tryouts < 5);
+        while(empty($this->order_data) && $tryouts < $max_tryouts);
         
         if (empty($this->order_data)) {
             $msg = 'Order data was not found.';
