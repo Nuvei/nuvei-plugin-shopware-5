@@ -138,7 +138,13 @@ class Shopware_Controllers_Frontend_NuveiPayment extends Shopware_Controllers_Fr
         $items  = $basket['sBasket']['content'];
         $i      = $items_total_sum = 0;
         
-//        Logger::writeLog($this->settings, $items, '$items');
+//        Logger::writeLog(
+//            $this->settings,
+//            [
+//                'items'     => $items,
+//                'sAmount'   => $basket['sAmount'],
+//            ]
+//        );
         
         // get items
         foreach ( $items as $item ) {
@@ -153,9 +159,9 @@ class Shopware_Controllers_Frontend_NuveiPayment extends Shopware_Controllers_Fr
             $params['item_name_'.$i]        = $item['articlename'];
             $params['item_number_'.$i]      = $item['articleID'];
             $params['item_quantity_'.$i]    = $item['quantity'];
-            $params['item_amount_'.$i]      = (float) str_replace(',', '.', $item['price']);
+            $params['item_amount_'.$i]      = round($item['priceNumeric'], 2);
 
-            $items_total_sum = $params['item_amount_'.$i] * $item['quantity'];
+            $items_total_sum += $params['item_amount_'.$i] * $item['quantity'];
         }
 
         Logger::writeLog($this->settings, $items_total_sum, '$items_total_sum');
