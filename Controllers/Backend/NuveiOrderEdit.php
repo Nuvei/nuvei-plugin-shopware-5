@@ -42,7 +42,7 @@ class Shopware_Controllers_Backend_NuveiOrderEdit extends Shopware_Controllers_B
 //        $order_status = $this->container->get('db')->fetchOne(
 //            "SELECT status FROM s_order WHERE id = " . $order_id);
         $order_data = $this->container->get('db')->fetchAll(
-            "SELECT status, invoice_amount FROM s_order WHERE id = " . $order_id);
+            "SELECT status, invoice_amount, cleared FROM s_order WHERE id = " . $order_id);
         
         if (!is_array($order_data)
             || empty($order_data[0]['status'])
@@ -59,8 +59,9 @@ class Shopware_Controllers_Backend_NuveiOrderEdit extends Shopware_Controllers_B
             ]));
         }
         
-        $order_status = $order_data[0]['status'];
-        $order_amount = $order_data[0]['invoice_amount'];
+        $order_status   = $order_data[0]['status'];
+        $payment_status = $order_data[0]['cleared'];
+        $order_amount   = $order_data[0]['invoice_amount'];
         
 //        Logger::writeLog($this->settings, $order_data);
 //        die;
@@ -125,7 +126,8 @@ class Shopware_Controllers_Backend_NuveiOrderEdit extends Shopware_Controllers_B
         Logger::writeLog($this->settings, $refunds);
         
         $enable_void = 0;
-        if(in_array($order_status, [Config::SC_ORDER_IN_PROGRESS, Config::SC_ORDER_COMPLETED]) 
+//        if(in_array($order_status, [Config::SC_ORDER_OPEN, Config::SC_ORDER_COMPLETED]) 
+        if(in_array($payment_status, [Config::SC_PAYMENT_OPEN, Config::SC_ORDER_PAID]) 
             && empty($refunds)
         ) {
             $enable_void = $nuvei_data_last_tr_id;

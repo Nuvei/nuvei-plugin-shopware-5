@@ -112,14 +112,32 @@ class Shopware_Controllers_Frontend_Nuvei extends Enlight_Controller_Action impl
         $max_tryouts    = 1 == $this->settings['swagSCTestMode'] ? 10 : 4;
         $wait_type      = 3; // seconds
         
-        if (!empty($this->params['relatedTransactionId'])) {
-            $trId = (int) $this->params['relatedTransactionId'];
+        // primary transactions
+        if (in_array($this->params['transactionType'], ['Sale', 'Auth'])) {
+            $query =
+                'SELECT id, ordernumber, status, cleared, invoice_amount, currency '
+                . 'FROM s_order '
+                . 'WHERE transactionID = ' . (int) $trId;
+        }
+        // secondary transaction
+        else {
+            $clientRequestId_arr = explode('_', $this->params['clientRequestId']);
+            
+            $query =
+                'SELECT id, ordernumber, status, cleared, invoice_amount, currency, transactionID '
+                . 'FROM s_order '
+                . 'WHERE ordernumber = ' . (int) $clientRequestId_arr[1];
         }
         
-        $query =
-            'SELECT id, ordernumber, status, cleared, invoice_amount, currency '
-            . 'FROM s_order '
-            . 'WHERE transactionID = ' . (int) $trId;
+        
+//        if (!empty($this->params['relatedTransactionId'])) {
+//            $trId = (int) $this->params['relatedTransactionId'];
+//        }
+//        
+//        $query =
+//            'SELECT id, ordernumber, status, cleared, invoice_amount, currency '
+//            . 'FROM s_order '
+//            . 'WHERE transactionID = ' . (int) $trId;
         
         do {
             $tryouts++;
@@ -357,7 +375,7 @@ class Shopware_Controllers_Frontend_Nuvei extends Enlight_Controller_Action impl
             return;
         }
         
-        if (in_array(
+        if ( in_array(
                 $this->order_data['cleared'], 
                 [Config::SC_COMPLETE_REFUNDED, Config::SC_PARTIALLY_REFUNDED, Config::SC_PAYMENT_CANCELLED]
             )

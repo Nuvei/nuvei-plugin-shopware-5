@@ -232,7 +232,7 @@ Ext.define('Shopware.apps.Order.view.detail.Overview', {
                 });
 
                 // enable Void
-                if(typeof resp.scEnableVoid != 'undefined' && resp.scEnableVoid > 0) {
+                if(resp.hasOwnProperty('scEnableVoid') && resp.scEnableVoid > 0) {
                     // other options area
                     var scVoidBtn = Ext.create('Ext.Button', {
                         text: 'Void'
