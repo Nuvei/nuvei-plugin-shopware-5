@@ -15,6 +15,7 @@
     * Trim the merchant credentials after get them.
     * Set different delay time in the DMN logic according the environment.
     * Removed Nuvei Partially Refunded status because it is missing in SW system.
+    * Do not call Nuvei admin scripts if the Order does not belongs to Nuvei.
 ```
 
 # 2.0.0
