@@ -300,69 +300,69 @@ Ext.define('Shopware.apps.Order.view.detail.Overview', {
 //               });
 
                 // Show Refunds
-//                if (resp.hasOwnProperty('refunds') && Object.keys(resp.refunds).length > 0) {
-//                    me.insert(2, me.createSCRefundsList());
-//                    
-//                    // set table headers
-//                    var rows = [
-//                        { html: '<b>Date</b>', border: 0 }
-//                        ,{ html: '<b>Request ID</b>', border: 0 }
-//                        ,{ html: '<b>Transaction ID</b>', border: 0 }
-//                        ,{ html: '<b>Amount</b>' ,border: 0 }
-//                        ,{ html: '' ,border: 0 }
-//
-//                    ];
-//
-//                    // create Refunds table rows
-//                    for(var trId in resp.refunds) {
-//                        rows.push(
-//                            {
-//                                html: resp.refunds[trId].responseTimeStamp
-//                                ,border: 0
-//                            }
+                if (resp.hasOwnProperty('refunds') && Object.keys(resp.refunds).length > 0) {
+                    me.insert(2, me.createSCRefundsList());
+                    
+                    // set table headers
+                    var rows = [
+                        { html: '<b>Date</b>', border: 0 }
+                        ,{ html: '<b>Request ID</b>', border: 0 }
+                        ,{ html: '<b>Transaction ID</b>', border: 0 }
+                        ,{ html: '<b>Amount</b>' ,border: 0 }
+                        ,{ html: '' ,border: 0 }
+
+                    ];
+
+                    // create Refunds table rows
+                    for(var trId in resp.refunds) {
+                        rows.push(
+                            {
+                                html: resp.refunds[trId].responseTimeStamp
+                                ,border: 0
+                            }
+                            ,{
+                                html: resp.refunds[trId].clientRequestId
+                                ,border: 0
+                            }
+                            ,{
+                                html: trId
+                                ,border: 0
+                            }
+                            ,{
+                                html: '-' + Number(resp.refunds[trId].totalAmount).toFixed(2)
+                                ,border: 0 
+                                ,style: {
+                                    textAlign: "right"
+                                }
+                            }
 //                            ,{
-//                                html: resp.refunds[trId].clientRequestId
-//                                ,border: 0
-//                            }
-//                            ,{
-//                                html: trId
-//                                ,border: 0
-//                            }
-//                            ,{
-//                                html: '-' + Number(resp.refunds[trId].totalAmount).toFixed(2)
+//                                html: '<div class="x-btn primary x-btn-default-small x-noicon x-btn-noicon x-btn-default-small-noicon" style="margin:10px 0px 0px 0px;border-width:1px 1px 1px 1px;" id="button-1686"><em><button type="button" class="x-btn-center" hidefocus="true" role="button" autocomplete="off" data-action="openCustomer" style="height: 24px;"><span class="x-btn-inner" style="">&times;</span></button></em></div>'
 //                                ,border: 0 
 //                                ,style: {
 //                                    textAlign: "right"
 //                                }
 //                            }
-////                            ,{
-////                                html: '<div class="x-btn primary x-btn-default-small x-noicon x-btn-noicon x-btn-default-small-noicon" style="margin:10px 0px 0px 0px;border-width:1px 1px 1px 1px;" id="button-1686"><em><button type="button" class="x-btn-center" hidefocus="true" role="button" autocomplete="off" data-action="openCustomer" style="height: 24px;"><span class="x-btn-inner" style="">&times;</span></button></em></div>'
-////                                ,border: 0 
-////                                ,style: {
-////                                    textAlign: "right"
-////                                }
-////                            }
-//                        );
-//                    }
-//
-//                    var cont = Ext.create('Ext.container.Container', {
-//                        layout: {
-//                            type: 'table'
-//                            ,columns: 5
-//                            ,tdAttrs: { style: 'padding: 10px;' }
-//                        }
-//                        ,items: rows
-//                    })
-//
-//                    Ext.ComponentQuery.query('#scRefundsContainer')[0]
-//                        .remove(Ext.ComponentQuery.query('#scRefundsLoadingImg')[0]);
-//
-//                    Ext.ComponentQuery.query('#scRefundsContainer')[0].add({
-//                        bodyBorder: false,
-//                        border:false,
-//                        items: cont
-//                    });
-//                }
+                        );
+                    }
+
+                    var cont = Ext.create('Ext.container.Container', {
+                        layout: {
+                            type: 'table'
+                            ,columns: 5
+                            ,tdAttrs: { style: 'padding: 10px;' }
+                        }
+                        ,items: rows
+                    })
+
+                    Ext.ComponentQuery.query('#scRefundsContainer')[0]
+                        .remove(Ext.ComponentQuery.query('#scRefundsLoadingImg')[0]);
+
+                    Ext.ComponentQuery.query('#scRefundsContainer')[0].add({
+                        bodyBorder: false,
+                        border:false,
+                        items: cont
+                    });
+                }
 //                else {
 //                    Ext.ComponentQuery.query('#scRefundsContainer')[0]
 //                        .remove(Ext.ComponentQuery.query('#scRefundsLoadingImg')[0]);
