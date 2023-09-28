@@ -39,10 +39,27 @@ class Shopware_Controllers_Backend_NuveiOrderEdit extends Shopware_Controllers_B
         $refunded_amount        = 0;
         $notes                  = [];
         
-//        $order_status = $this->container->get('db')->fetchOne(
-//            "SELECT status FROM s_order WHERE id = " . $order_id);
-        $order_data = $this->container->get('db')->fetchAll(
-            "SELECT status, invoice_amount, cleared FROM s_order WHERE id = " . $order_id);
+        $query = "SELECT o.status AS status, o.invoice_amount AS invoice_amount, o.cleared AS cleared "
+                . "FROM s_order AS o "
+                . "LEFT JOIN s_core_paymentmeans AS pm ON o.paymentID = pm.id "
+                . "WHERE o.id = " . $order_id . " "
+                    . "AND pm.name = '" . Config::NUVEI_CODE . "'"
+                ;
+        
+        $order_data = $this->container->get('db')->fetchAll($query);
+        
+//        Logger::writeLog($this->settings, [$query, $order_data]);
+        
+        // the Order does not belongs to Nuvei
+        if (empty($order_data)) {
+            exit(json_encode([
+                'status'    => 'success',
+                'refunds'   => [],
+                'notes'     => [],
+            ]));
+        }
+        
+        Logger::writeLog($this->settings, $order_data);
         
         if (!is_array($order_data)
             || empty($order_data[0]['status'])
@@ -200,6 +217,7 @@ class Shopware_Controllers_Backend_NuveiOrderEdit extends Shopware_Controllers_B
             $msg = 'Nuvei Order data is empty for Order ' . $order_id;
             
             Logger::writeLog($this->settings, $nuvei_data, $msg);
+            
             exit(json_encode([
                 'status'    => 'error',
                 'msg'       => $msg
@@ -216,6 +234,7 @@ class Shopware_Controllers_Backend_NuveiOrderEdit extends Shopware_Controllers_B
             $msg = 'There is no Order data.';
             
             Logger::writeLog($this->settings, $msg);
+            
             echo json_encode([
                 'status'    => 'error',
                 'msg'       => $msg

@@ -10,10 +10,10 @@ Ext.define('Shopware.apps.Order.view.detail.Overview', {
         var me = this;
         me.callParent();
         
-        me.insert(2, me.createSCRefundsList());
-        me.insert(3, me.createSCNotesList());
-        me.insert(4, me.createSCEditContainer());
-        me.insert(5, me.renderSCData());
+//        me.insert(2, me.createSCRefundsList());
+//        me.insert(3, me.createSCNotesList());
+//        me.insert(4, me.createSCEditContainer());
+        me.insert(2, me.renderSCData());
     }
     
     ,scOrderActions: function(action, btnId, trId) {
@@ -133,6 +133,7 @@ Ext.define('Shopware.apps.Order.view.detail.Overview', {
         return scFinalContainer;
     }
     
+    // create Ajax call and render the data if any
     ,renderSCData: function() {
         var me = this;
         var scFinalItems = [];
@@ -148,11 +149,11 @@ Ext.define('Shopware.apps.Order.view.detail.Overview', {
                 
                 // error - no status
                 if (!resp.hasOwnProperty('status')) {
-                    Ext.ComponentQuery.query('#scFinalContainer')[0]
-                        .remove(Ext.ComponentQuery.query('#scPanelLoadingImg')[0]);
-                
-                    Ext.ComponentQuery.query('#scRefundsContainer')[0]
-                        .remove(Ext.ComponentQuery.query('#scRefundsLoadingImg')[0]);
+//                    Ext.ComponentQuery.query('#scFinalContainer')[0]
+//                        .remove(Ext.ComponentQuery.query('#scPanelLoadingImg')[0]);
+//                
+//                    Ext.ComponentQuery.query('#scRefundsContainer')[0]
+//                        .remove(Ext.ComponentQuery.query('#scRefundsLoadingImg')[0]);
                     
                     console.error('Nuvei Error - missing response status.')
                     return;
@@ -162,18 +163,18 @@ Ext.define('Shopware.apps.Order.view.detail.Overview', {
                 if (resp.status != 'success') {
                     alert(resp.msg);
                     
-                    Ext.ComponentQuery.query('#scFinalContainer')[0]
-                        .remove(Ext.ComponentQuery.query('#scPanelLoadingImg')[0]);
-                
-                    Ext.ComponentQuery.query('#scRefundsContainer')[0]
-                        .remove(Ext.ComponentQuery.query('#scRefundsLoadingImg')[0]);
+//                    Ext.ComponentQuery.query('#scFinalContainer')[0]
+//                        .remove(Ext.ComponentQuery.query('#scPanelLoadingImg')[0]);
+//                
+//                    Ext.ComponentQuery.query('#scRefundsContainer')[0]
+//                        .remove(Ext.ComponentQuery.query('#scRefundsLoadingImg')[0]);
                     
                     return;
                 }
                 
                 // ON SUCCESS
                 // enable Refund button
-                if(typeof resp.scEnableRefund != 'undefined' && resp.scEnableRefund > 0) {
+                if(resp.hasOwnProperty('scEnableRefund') && resp.scEnableRefund > 0) {
                     // refund area
                     var scRefundFieldTitle = Ext.create('Ext.form.field.Number', {
                         autoScroll: true
@@ -253,7 +254,7 @@ Ext.define('Shopware.apps.Order.view.detail.Overview', {
                 // /enable Void
 
                 // enable Settle
-                if(typeof resp.scEnableSettle != 'undefined' && resp.scEnableSettle > 0) {
+                if(resp.hasOwnProperty('scEnableSettle') && resp.scEnableSettle > 0) {
                     var scSettleBtn = Ext.create('Ext.Button', {
                         text: 'Settle'
                         ,html: ''
@@ -275,21 +276,33 @@ Ext.define('Shopware.apps.Order.view.detail.Overview', {
 
                 if(scOtherOptionsArea.items.length > 0) {
                     scFinalItems.push(scOtherOptionsArea);
+                    
+                    me.insert(2, me.createSCEditContainer());
+                    
+                    Ext.ComponentQuery.query('#scPanelLoadingImg')[0].hide();
+
+                    Ext.ComponentQuery.query('#scFinalContainer')[0].add({
+                        bodyBorder: false,
+                        border:false,
+                        items: scFinalItems
+                   });
                 }
 
 //                    Ext.ComponentQuery.query('#scFinalContainer')[0]
 //                        .remove(Ext.ComponentQuery.query('#scPanelLoadingImg')[0]);
 
-                Ext.ComponentQuery.query('#scPanelLoadingImg')[0].hide();
-
-                Ext.ComponentQuery.query('#scFinalContainer')[0].add({
-                    bodyBorder: false,
-                    border:false,
-                    items: scFinalItems
-               });
+//                Ext.ComponentQuery.query('#scPanelLoadingImg')[0].hide();
+//
+//                Ext.ComponentQuery.query('#scFinalContainer')[0].add({
+//                    bodyBorder: false,
+//                    border:false,
+//                    items: scFinalItems
+//               });
 
                 // Show Refunds
-                if (typeof resp.refunds != 'undefined' && Object.keys(resp.refunds).length > 0) {
+                if (resp.hasOwnProperty('refunds') && Object.keys(resp.refunds).length > 0) {
+                    me.insert(2, me.createSCRefundsList());
+                    
                     // set table headers
                     var rows = [
                         { html: '<b>Date</b>', border: 0 }
@@ -322,13 +335,13 @@ Ext.define('Shopware.apps.Order.view.detail.Overview', {
                                     textAlign: "right"
                                 }
                             }
-                            ,{
-                                html: '<div class="x-btn primary x-btn-default-small x-noicon x-btn-noicon x-btn-default-small-noicon" style="margin:10px 0px 0px 0px;border-width:1px 1px 1px 1px;" id="button-1686"><em><button type="button" class="x-btn-center" hidefocus="true" role="button" autocomplete="off" data-action="openCustomer" style="height: 24px;"><span class="x-btn-inner" style="">&times;</span></button></em></div>'
-                                ,border: 0 
-                                ,style: {
-                                    textAlign: "right"
-                                }
-                            }
+//                            ,{
+//                                html: '<div class="x-btn primary x-btn-default-small x-noicon x-btn-noicon x-btn-default-small-noicon" style="margin:10px 0px 0px 0px;border-width:1px 1px 1px 1px;" id="button-1686"><em><button type="button" class="x-btn-center" hidefocus="true" role="button" autocomplete="off" data-action="openCustomer" style="height: 24px;"><span class="x-btn-inner" style="">&times;</span></button></em></div>'
+//                                ,border: 0 
+//                                ,style: {
+//                                    textAlign: "right"
+//                                }
+//                            }
                         );
                     }
 
@@ -350,14 +363,16 @@ Ext.define('Shopware.apps.Order.view.detail.Overview', {
                         items: cont
                     });
                 }
-                else {
-                    Ext.ComponentQuery.query('#scRefundsContainer')[0]
-                        .remove(Ext.ComponentQuery.query('#scRefundsLoadingImg')[0]);
-                }
+//                else {
+//                    Ext.ComponentQuery.query('#scRefundsContainer')[0]
+//                        .remove(Ext.ComponentQuery.query('#scRefundsLoadingImg')[0]);
+//                }
                 // /Show Refunds
                 
                 // Show Notes
                 if (resp.hasOwnProperty('notes') && Object.keys(resp.notes).length > 0) {
+                    me.insert(2, me.createSCNotesList());
+                    
                     // set table headers
                     var rows = [
                         { html: '<b>Date</b>', border: 0 }
@@ -396,10 +411,10 @@ Ext.define('Shopware.apps.Order.view.detail.Overview', {
                         items: cont
                     });
                 }
-                else {
-                    Ext.ComponentQuery.query('#scNotesContainer')[0]
-                        .remove(Ext.ComponentQuery.query('#scNotesLoadingImg')[0]);
-                }
+//                else {
+//                    Ext.ComponentQuery.query('#scNotesContainer')[0]
+//                        .remove(Ext.ComponentQuery.query('#scNotesLoadingImg')[0]);
+//                }
                 // /Show Notes
             },
             error: function() {

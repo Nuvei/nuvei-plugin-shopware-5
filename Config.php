@@ -42,8 +42,9 @@ class Config
     // payment states
     const SC_ORDER_PAID         = 12;
     const SC_PAYMENT_OPEN       = 17;
-    const SC_PARTIALLY_REFUNDED = 31;
-    const SC_COMPLETE_REFUNDED  = 32;
+//    const SC_PARTIALLY_REFUNDED = 31;
+//    const SC_COMPLETE_REFUNDED  = 32;
+    const SC_REFUNDED_ACCEPTED  = 32;
     const SC_PAYMENT_CANCELLED  = 35;
     
     const NUVEI_PARAMS_VALIDATION = [

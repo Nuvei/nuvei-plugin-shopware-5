@@ -350,7 +350,8 @@ class Shopware_Controllers_Frontend_Nuvei extends Enlight_Controller_Action impl
         
         if (!in_array(
                 $this->order_data['cleared'], 
-                [Config::SC_PARTIALLY_REFUNDED, Config::SC_ORDER_PAID]
+//                [Config::SC_PARTIALLY_REFUNDED, Config::SC_ORDER_PAID]
+                [Config::SC_REFUNDED_ACCEPTED, Config::SC_ORDER_PAID]
             )
             || Config::SC_ORDER_NOT_VISIBLE == $this->order_data['status']
         ) {
@@ -377,7 +378,8 @@ class Shopware_Controllers_Frontend_Nuvei extends Enlight_Controller_Action impl
         
         if ( in_array(
                 $this->order_data['cleared'], 
-                [Config::SC_COMPLETE_REFUNDED, Config::SC_PARTIALLY_REFUNDED, Config::SC_PAYMENT_CANCELLED]
+//                [Config::SC_COMPLETE_REFUNDED, Config::SC_PARTIALLY_REFUNDED, Config::SC_PAYMENT_CANCELLED]
+                [Config::SC_REFUNDED_ACCEPTED, Config::SC_PAYMENT_CANCELLED]
             )
             || Config::SC_ORDER_NOT_VISIBLE == $this->order_data['status']
         ) {
@@ -624,8 +626,9 @@ class Shopware_Controllers_Frontend_Nuvei extends Enlight_Controller_Action impl
                             . ' ' . $this->params['currency'] . '. ';
                     }
                     
-                    $payment_status = $order_amount <= $refunded_amount 
-                        ? Config::SC_COMPLETE_REFUNDED : Config::SC_PARTIALLY_REFUNDED;
+//                    $payment_status = $order_amount <= $refunded_amount 
+//                        ? Config::SC_COMPLETE_REFUNDED : Config::SC_PARTIALLY_REFUNDED;
+                    $payment_status = Config::SC_REFUNDED_ACCEPTED;
                     
                 }
                 // Settle/Sale

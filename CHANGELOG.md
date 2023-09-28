@@ -14,6 +14,7 @@
     * Implemented Auto-Void.
     * Trim the merchant credentials after get them.
     * Set different delay time in the DMN logic according the environment.
+    * Removed Nuvei Partially Refunded status because it is missing in SW system.
 ```
 
 # 2.0.0
