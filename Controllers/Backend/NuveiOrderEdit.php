@@ -137,7 +137,7 @@ class Shopware_Controllers_Backend_NuveiOrderEdit extends Shopware_Controllers_B
             ];
         }
         
-        ksort($refunds);
+//        ksort($refunds);
         ksort($notes);
         
         Logger::writeLog($this->settings, $refunds);
@@ -171,7 +171,7 @@ class Shopware_Controllers_Backend_NuveiOrderEdit extends Shopware_Controllers_B
             'scEnableVoid'      => $enable_void,
             'scEnableRefund'    => $enable_refund,
             'scEnableSettle'    => $enable_settle,
-            'refunds'           => $refunds,
+//            'refunds'           => $refunds,
             'notes'             => $notes,
         ]));
     }
