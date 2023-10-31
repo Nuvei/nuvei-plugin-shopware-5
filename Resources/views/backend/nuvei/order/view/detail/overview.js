@@ -3,16 +3,12 @@
 Ext.define('Shopware.apps.Order.view.detail.Overview', {
 //    override: 'Shopware.apps.Order.view.detail.Overview',
     extend: 'Shopware.apps.Order.view.detail.Overview'
-    ,alias:  'scOptions'
-//    ,scOrderData: []
+    
+    ,alias: 'scOptions'
     
     ,initComponent: function () {
         var me = this;
         me.callParent();
-        
-//        me.insert(2, me.createSCRefundsList());
-//        me.insert(3, me.createSCNotesList());
-//        me.insert(4, me.createSCEditContainer());
         me.insert(2, me.renderSCData());
     }
     

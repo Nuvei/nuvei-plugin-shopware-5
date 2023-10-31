@@ -48,7 +48,7 @@ class Shopware_Controllers_Frontend_NuveiPayment extends Shopware_Controllers_Fr
         $locale = $this->get('shopware_storefront.context_service')
             ->getShopContext()->getShop()->getLocale()->getLocale();
         
-        $fmt        = numfmt_create($locale, NumberFormatter::DECIMAL);
+//        $fmt        = numfmt_create($locale, NumberFormatter::DECIMAL);
         $signature  = $this->persistBasket();
         $persister  = $this->get('basket_persister');
         $basket     = $persister->load($signature);
@@ -187,6 +187,9 @@ class Shopware_Controllers_Frontend_NuveiPayment extends Shopware_Controllers_Fr
 //        $params['handling'] = number_format($basket['sShippingcosts'], 2, '.', '');
         $params['discount'] = number_format($params['discount'], 2, '.', '');
 
+        $params['customField2'] = $params['total_amount'];
+        $params['customField3'] = $params['currency'];
+        
         // be sure there are no array elements in $params !!!
         $params['checksum'] = hash(
             $this->settings['swagSCHash']

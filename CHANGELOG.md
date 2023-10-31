@@ -1,6 +1,9 @@
 # ShopWare 5 Nuvei Module
 
----
+# 2.0.2
+```
+    * Pass original total and currency as custom fields. When DMN come, check them.
+```
 
 # 2.0.1
 ```

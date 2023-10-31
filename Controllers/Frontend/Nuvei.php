@@ -16,6 +16,7 @@ class Shopware_Controllers_Frontend_Nuvei extends Enlight_Controller_Action impl
     private $curr_dmn_note  = '';
     private $nuvei_data     = [];
     private $nuvei_notes    = [];
+    private $totalCurrAlert = false;
     private $order_data;
     private $settings;
     private $params;
@@ -72,6 +73,7 @@ class Shopware_Controllers_Frontend_Nuvei extends Enlight_Controller_Action impl
     {
         Logger::writeLog($this->settings, $this->params, 'getDMNAction');
         
+        // exit
         if (!empty($this->params['type']) 
             && 'CARD_TOKENIZATION' == $this->params['type']
         ) {
@@ -82,6 +84,7 @@ class Shopware_Controllers_Frontend_Nuvei extends Enlight_Controller_Action impl
         
         $req_status = $this->get_request_status($this->params);
         
+        // exit
         if ('pending' == strtolower($req_status)) {
             $msg = 'Pending DMN, waiting for the next.';
 
@@ -89,16 +92,7 @@ class Shopware_Controllers_Frontend_Nuvei extends Enlight_Controller_Action impl
             exit($msg);
         }
         
-//        if (empty($this->params['TransactionID'])
-//            || empty($req_status) 
-//            || empty($this->params['transactionType'])
-//        ) {
-//            $msg = 'Missing mandatory DMN parameter.';
-//            
-//            Logger::writeLog($this->settings, $msg);
-//            exit($msg);
-//        }
-        
+        // exit
         if(!$this->checkAdvRespChecksum()) {
             $msg = 'DMN report: You receive DMN from not trusted source. The process ends here.';
             
@@ -129,16 +123,6 @@ class Shopware_Controllers_Frontend_Nuvei extends Enlight_Controller_Action impl
                 . 'WHERE ordernumber = ' . (int) $clientRequestId_arr[1];
         }
         
-        
-//        if (!empty($this->params['relatedTransactionId'])) {
-//            $trId = (int) $this->params['relatedTransactionId'];
-//        }
-//        
-//        $query =
-//            'SELECT id, ordernumber, status, cleared, invoice_amount, currency '
-//            . 'FROM s_order '
-//            . 'WHERE transactionID = ' . (int) $trId;
-        
         do {
             $tryouts++;
             
@@ -156,6 +140,7 @@ class Shopware_Controllers_Frontend_Nuvei extends Enlight_Controller_Action impl
         }
         while(empty($this->order_data) && $tryouts < $max_tryouts);
         
+        // exit
         if (empty($this->order_data)) {
             $msg = 'Order data was not found.';
             http_response_code(400);
@@ -176,6 +161,7 @@ class Shopware_Controllers_Frontend_Nuvei extends Enlight_Controller_Action impl
             $row                = current($res);
             $this->nuvei_data   = json_decode($row['nuvei_data'], true);
             
+            // exit
             if (array_key_exists($this->params['TransactionID'], $this->nuvei_data)
                 && $this->nuvei_data[$this->params['TransactionID']]['Status'] == $req_status
             ) {
@@ -465,8 +451,8 @@ class Shopware_Controllers_Frontend_Nuvei extends Enlight_Controller_Action impl
     }
     
     /**
-     * We must call this method after changeOrderStatus, because we need
-     * the DMN note.
+     * We must call this method after changeOrderStatus,
+     * because we need the DMN note.
      * 
      * @param int $order
      * @return void
@@ -537,6 +523,11 @@ class Shopware_Controllers_Frontend_Nuvei extends Enlight_Controller_Action impl
                 = $this->params['merchant_unique_id'];
         }
         
+        // save the original total and currency
+        $this->nuvei_data[$this->params['TransactionID']]['originalTotal']      = $this->params['customField2'];
+        $this->nuvei_data[$this->params['TransactionID']]['originalCurrency']   = $this->params['customField3'];
+        $this->nuvei_data[$this->params['TransactionID']]['totalCurrAlert']     = $this->totalCurrAlert;
+        
         $this->nuvei_data[$this->params['TransactionID']]['comment'] = $this->curr_dmn_note;
         
         // fill Nuvei Order data
@@ -568,10 +559,10 @@ class Shopware_Controllers_Frontend_Nuvei extends Enlight_Controller_Action impl
         );
         
         $order_module   = Shopware()->Modules()->Order();
-        $ord_status     = Config::SC_ORDER_IN_PROGRESS; //default
-        $payment_status = Config::SC_PAYMENT_OPEN; //default
+        $ord_status     = Config::SC_ORDER_IN_PROGRESS; // default
+        $payment_status = Config::SC_PAYMENT_OPEN; // default
         $send_message   = true;
-        $dmn_amount     = round($this->params['totalAmount'], 2);
+        $dmn_amount     = round((float) $this->params['totalAmount'], 2);
         $order_amount   = round((float) $this->order_data['invoice_amount'], 2);
         $message        = '';
         
@@ -580,7 +571,6 @@ class Shopware_Controllers_Frontend_Nuvei extends Enlight_Controller_Action impl
         ) {
             $send_message = false;
         }
-        
 
 		$gw_data = $this->params['transactionType'] . ' request. '
 			. 'Response status: ' . $status . '. '
@@ -644,36 +634,38 @@ class Shopware_Controllers_Frontend_Nuvei extends Enlight_Controller_Action impl
                 }
                 
                 // check for correct amount
-				if (in_array($this->params['transactionType'], array('Auth', 'Sale'), true)
-                    && $order_amount !== $dmn_amount
-                ) {
-                    $message .= ' Payment ERROR!' . ' ' . $dmn_amount . ' ' . $this->params['currency']
-                        . ' ' . 'paid instead of ' . $order_amount . ' ' . $this->order_data['currency'] . '!';
+                if (in_array($this->params['transactionType'], ['Auth', 'Sale'])) {
+                    if ($order_amount !== $dmn_amount
+                        && $order_amount != $this->params['customField2']
+                    ) {
+                        $this->totalCurrAlert = true;
+                    }
+                    
+                    if ($this->order_data['currency'] !== $this->params['currency']
+                        && $this->order_data['currency'] != $this->params['customField3']
+                    ) {
+                        $this->totalCurrAlert = true;
+                    }
+                    
+                    if ($this->totalCurrAlert) {
+                        $message .= ' Attention! - ' . $dmn_amount . ' ' . $this->params['currency']
+                            . ' was paid instead of ' . $order_amount . ' ' . $this->order_data['currency'] . '.';
 
-                    Logger::writeLog(
-                        $this->settings,
-                        array(
-                            'order_amount' => $order_amount,
-                            'dmn_amount'   => $dmn_amount,
-                        ),
-                        'DMN amount and Order amount do not much.'
-                    );
-				}
-                
-                // check for correct currency
-                if ($this->order_data['currency'] !== $this->params['currency']) {
-					$message .= ' Payment ERROR! The Order currency is ' . $this->order_data['currency']
-                        . ', but the DMN currency is ' . $this->params['currency'] . '!';
-
-                    Logger::writeLog(
-                        $this->settings,
-                        array(
-                            'order currency'    => $this->order_data['currency'],
-                            'dmn currency'      => $this->params['currency'],
-                        ),
-                        'DMN currency and Order currency do not much.'
-                    );
-				}
+                        Logger::writeLog(
+                            $this->settings,
+                            array(
+                                'order amount'      => $order_amount,
+                                'dmn amount'        => $dmn_amount,
+                                'original amount'   => $this->params['customField2'],
+                                'order currency'    => $this->order_data['currency'],
+                                'dmn currency'      => $this->params['currency'],
+                                'original currency' => $this->params['customField3'],
+                            ),
+                            'DMN amount/currency and Order amount/currency does not much.',
+                            'WARN'
+                        );
+                    }
+                }
                 
                 break;
                 

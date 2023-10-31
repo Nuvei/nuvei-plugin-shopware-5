@@ -7,7 +7,7 @@ namespace SwagNuvei;
  */
 class Config
 {
-    const NUVEI_PLUGIN_VERSION      = '2.0.1';
+    const NUVEI_PLUGIN_VERSION      = '2.0.2';
     const NUVEI_GATEWAY_TITLE       = 'Nuvei';
     const NUVEI_CODE                = 'nuvei_payments';
     const NUVEI_DESCR               = 'Nuvei Payments';
