@@ -305,6 +305,7 @@ class Shopware_Controllers_Backend_NuveiOrderEdit extends Shopware_Controllers_B
         $params = array(
             'clientRequestId'       => $time . '_' . $order_info['ordernumber'] . '_' . uniqid(),
             'amount'                => $amount,
+            'currency'              => $order_info['currency'],
             'relatedTransactionId'  => $order_data_to_use['TransactionID'],
             'urlDetails'            => array('notificationUrl' => $notify_url),
             'url'                   => $notify_url, // custom for auto checksum calculation
@@ -313,7 +314,7 @@ class Shopware_Controllers_Backend_NuveiOrderEdit extends Shopware_Controllers_B
                 . '; Plugin v' . Config::NUVEI_PLUGIN_VERSION,
         );
         
-        $checksum_params = ['merchantId', 'merchantSiteId', 'clientRequestId', 'clientUniqueId', 'amount', 'relatedTransactionId', 'url', 'timeStamp'];
+        $checksum_params = ['merchantId', 'merchantSiteId', 'clientRequestId', 'clientUniqueId', 'amount', 'currency', 'relatedTransactionId', 'url', 'timeStamp'];
         
         $resp = Nuvei::call_rest_api('refundTransaction', $params, $checksum_params, $this->settings);
         exit(json_encode($resp));
