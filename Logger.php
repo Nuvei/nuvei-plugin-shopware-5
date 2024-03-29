@@ -7,6 +7,20 @@ namespace SwagNuvei;
  */
 class Logger
 {
+    private static $fieldsToMask = [
+        'ips'       => ['ipAddress'],
+        'names'     => ['firstName', 'lastName', 'first_name', 'last_name', 'shippingFirstName', 'shippingLastName'],
+        'emails'    => [
+            'userTokenId',
+            'email',
+            'shippingMail', // from the DMN
+            'userid', // from the DMN
+            'user_token_id', // from the DMN
+        ],
+        'address'   => ['address', 'phone', 'zip'],
+        'others'    => ['userAccountDetails', 'userPaymentOption', 'paymentOption'],
+    ];
+    
     private static $traceId;
     
     /**
@@ -32,10 +46,15 @@ class Logger
             ]));
         }
         
-        $test_mode  = false;
-        $beauty_log = false;
-        $d          = $data;
-        $string     = '';
+        $test_mode      = false;
+        $beauty_log     = false;
+        $d              = $data;
+        $string         = '';
+        $mask_details   = true; // true if the setting is not set
+        
+        if(!empty($settings['swagMaskLog']) && $settings['swagMaskLog'] == 'no') {
+            $mask_details = false;
+        }
         
         if(!empty($settings['swagSCTestMode']) && 1 == $settings['swagSCTestMode']) {
             $beauty_log = $test_mode = true;
@@ -48,18 +67,25 @@ class Logger
         } elseif ('' === $data) {
             $d = 'Data is Empty.';
         } elseif (is_array($data)) {
-            // do not log accounts if on prod
-            if (!$test_mode) {
-                if (isset($data['userAccountDetails']) && is_array($data['userAccountDetails'])) {
-                    $data['userAccountDetails'] = 'account details';
-                }
-                if (isset($data['userPaymentOption']) && is_array($data['userPaymentOption'])) {
-                    $data['userPaymentOption'] = 'user payment options details';
-                }
-                if (isset($data['paymentOption']) && is_array($data['paymentOption'])) {
-                    $data['paymentOption'] = 'payment options details';
-                }
+            if ($mask_details) {
+                // clean possible objects inside array
+                $data = json_decode(json_encode($data), true);
+
+                array_walk_recursive($data, 'self::maskData', self::$fieldsToMask);
             }
+            
+            // do not log accounts if on prod
+//            if (!$test_mode) {
+//                if (isset($data['userAccountDetails']) && is_array($data['userAccountDetails'])) {
+//                    $data['userAccountDetails'] = 'account details';
+//                }
+//                if (isset($data['userPaymentOption']) && is_array($data['userPaymentOption'])) {
+//                    $data['userPaymentOption'] = 'user payment options details';
+//                }
+//                if (isset($data['paymentOption']) && is_array($data['paymentOption'])) {
+//                    $data['paymentOption'] = 'payment options details';
+//                }
+//            }
             // do not log accounts if on prod
 
             if (!empty($data['paymentMethods']) && is_array($data['paymentMethods'])) {
@@ -77,6 +103,13 @@ class Logger
 
             $d = $test_mode ? json_encode($data, JSON_PRETTY_PRINT) : json_encode($data);
         } elseif (is_object($data)) {
+            if ($mask_details) {
+                // clean possible objects inside array
+                $data = json_decode(json_encode($data), true);
+
+                array_walk_recursive($data, 'self::maskData', self::$fieldsToMask);
+            }
+            
             $d = $test_mode ? json_encode($data, JSON_PRETTY_PRINT) : json_encode($data);
         } else {
             $d = $test_mode ? json_encode($data, JSON_PRETTY_PRINT) : json_encode($data);
@@ -148,4 +181,29 @@ class Logger
         }
         catch (Exception $ex) {}
     }
+    
+    /**
+     * A callback function for arraw_walk_recursive.
+     * 
+     * @param mixed $value
+     * @param mixed $key
+     * @param array $fields
+     */
+    private static function maskData(&$value, $key, $fields)
+    {
+        if (!empty($value)) {
+            if (in_array($key, $fields['ips'])) {
+                $value = rtrim(long2ip(ip2long($value) & (~255)), "0")."x";
+            } elseif (in_array($key, $fields['names'])) {
+                $value = substr($value, 0, 1) . '****';
+            } elseif (in_array($key, $fields['emails'])) {
+                $value = '****' . substr($value, 4);
+            } elseif (in_array($key, $fields['address'])
+                || in_array($key, $fields['others'])
+            ) {
+                $value = '****';
+            }
+        }
+    }
+    
 }

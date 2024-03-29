@@ -43,6 +43,22 @@
             <value>true</value>
         </element>
         
+        <element type="select" scope="locale">
+            <name>swagMaskLog</name>
+            <label lang="en">Mask users details in the log</label>
+            <value>yes</value>
+            <store>
+                <option>
+                    <value>yes</value>
+                    <label>Yes</label>
+                </option>
+                <option>
+                    <value>no</value>
+                    <label>No</label>
+                </option>
+            </store>
+        </element>
+        
         <element type="boolean" scope="locale">
             <name>swagSCSaveLogs</name>
             <label lang="en">Save logs</label>

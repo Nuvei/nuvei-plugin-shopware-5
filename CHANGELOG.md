@@ -1,5 +1,10 @@
 # ShopWare 5 Nuvei Module
 
+# 2.0.3
+```
+    * Add option to mask/unmask user details in the log.
+```
+
 # 2.0.2
 ```
     * Pass original total and currency as custom fields. When DMN come, check them.
