@@ -3,6 +3,7 @@
 # 2.0.3
 ```
     * Add option to mask/unmask user details in the log.
+    * Fix for the sourceApplication parameter.
 ```
 
 # 2.0.2
